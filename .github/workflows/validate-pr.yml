@@ -2,72 +2,44 @@ name: Validate PR
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
     branches:
       - master
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.gitignore'
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: validate-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   validate:
     name: Validation Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
-      - name: Checkout Code
+      - name: Checkout validation scripts
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          sparse-checkout: .github/scripts/validate-pr.js
+          sparse-checkout-cone-mode: false
 
-      - name: Verify .version is updated
-        run: |
-          # Check if .version is different from origin/master
-          if git diff --quiet origin/master...HEAD -- .version; then
-            echo "::error::The .version file has not been updated in this PR! Please bump the version."
-            exit 1
-          else
-            echo "✅ .version file has been modified."
-          fi
-
-      - name: Check for unresolved PR comments
+      - name: Validate pull request
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           script: |
-            const query = `
-              query($owner: String!, $repo: String!, $pr: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  pullRequest(number: $pr) {
-                    reviewThreads(first: 100) {
-                      nodes {
-                        isResolved
-                      }
-                    }
-                  }
-                }
-              }
-            `;
-            const variables = {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pr: context.issue.number
-            };
-            
-            const result = await github.graphql(query, variables);
-            const threads = result.repository.pullRequest.reviewThreads.nodes;
-            const unresolved = threads.filter(t => !t.isResolved);
-            
-            if (unresolved.length > 0) {
-              core.setFailed(`There are ${unresolved.length} unresolved PR review thread(s). Please resolve them before merging.`);
-            } else {
-              core.info("✅ No unresolved PR review threads found.");
-            }
+            const validate = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/validate-pr.js`);
+            await validate({ github, context, core });

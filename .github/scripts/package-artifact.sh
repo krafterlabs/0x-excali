@@ -61,9 +61,50 @@ create_tar_gz() {
   tar -C "${parent}" -czf "${archive_path}" "${name}"
 }
 
+create_dmg() {
+  if [[ "${artifact_path}" != *.app ]]; then
+    echo "::error::DMG packaging requires a macOS .app bundle: ${artifact_path}"
+    exit 1
+  fi
+
+  if ! command -v hdiutil >/dev/null 2>&1; then
+    echo "::error::hdiutil is required to create a DMG"
+    exit 1
+  fi
+
+  local staging_directory
+  local dmg_name
+  local dmg_path
+  local app_bundle_name
+
+  staging_directory="$(mktemp -d)"
+  dmg_name="${app_name}-${environment_name}-${artifact_platform}-${version}.dmg"
+  dmg_path="${archive_directory}/${dmg_name}"
+  app_bundle_name="$(basename "${artifact_path}")"
+
+  rm -f "${dmg_path}"
+  cp -R "${artifact_path}" "${staging_directory}/${app_bundle_name}"
+  ln -s /Applications "${staging_directory}/Applications"
+
+  hdiutil create \
+    -volname "${app_name}" \
+    -srcfolder "${staging_directory}" \
+    -ov \
+    -format UDZO \
+    "${dmg_path}"
+
+  rm -rf "${staging_directory}"
+
+  archive_name="${dmg_name}"
+  archive_path="${dmg_path}"
+}
+
 case "${archive_format}" in
   zip)
     create_zip
+    ;;
+  dmg)
+    create_dmg
     ;;
   tar.gz)
     create_tar_gz

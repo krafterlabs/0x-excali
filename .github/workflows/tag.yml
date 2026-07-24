@@ -1,10 +1,7 @@
 name: Auto Tag on Merge
 
 on:
-  pull_request:
-    types: [closed]
-    branches:
-      - master
+  workflow_call:
 
 permissions:
   contents: write

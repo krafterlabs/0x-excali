@@ -1,0 +1,53 @@
+# ========================
+# Go
+# ========================
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# ========================
+# Wails
+# ========================
+build/
+
+# ========================
+# Frontend (Node / Vite)
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/package.json.md5
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================
+# 0x-excali app data
+# ========================
+# Local SQLite database & encryption key (generated at runtime)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.keyfile
+
+# ========================
+# OS
+# ========================
+.DS_Store
+desktop.ini
+frontend/wailsjs/

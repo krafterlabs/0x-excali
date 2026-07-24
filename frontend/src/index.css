@@ -1,0 +1,193 @@
+@import "@fontsource-variable/geist";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 1 0 0;
+    --foreground: 0.141 0.005 285.823;
+    --card: 1 0 0;
+    --card-foreground: 0.141 0.005 285.823;
+    --popover: 1 0 0;
+    --popover-foreground: 0.141 0.005 285.823;
+    --primary: 0.555 0.163 48.998;
+    --primary-foreground: 0.987 0.022 95.277;
+    --secondary: 0.967 0.001 286.375;
+    --secondary-foreground: 0.21 0.006 285.885;
+    --muted: 0.967 0.001 286.375;
+    --muted-foreground: 0.552 0.016 285.938;
+    --accent: 0.967 0.001 286.375;
+    --accent-foreground: 0.21 0.006 285.885;
+    --destructive: 0.577 0.245 27.325;
+    --border: 0.92 0.004 286.32;
+    --input: 0.92 0.004 286.32;
+    --ring: 0.705 0.015 286.067;
+    --radius: 0.625rem;
+    --sidebar: 0.985 0 0;
+    --sidebar-foreground: 0.141 0.005 285.823;
+    --sidebar-primary: 0.666 0.179 58.318;
+    --sidebar-primary-foreground: 0.987 0.022 95.277;
+    --sidebar-accent: 0.967 0.001 286.375;
+    --sidebar-accent-foreground: 0.21 0.006 285.885;
+    --sidebar-border: 0.92 0.004 286.32;
+    --sidebar-ring: 0.705 0.015 286.067;
+  }
+
+  .app-dark {
+    --background: 0.20 0 0;
+    /* #1a1a1a Main background */
+    --foreground: 0.90 0 0;
+    /* #e6e6e6 Primary text */
+    --card: 0.25 0 0;
+    /* #262626 Elevated surfaces */
+    --card-foreground: 0.90 0 0;
+    --popover: 0.25 0 0;
+    --popover-foreground: 0.90 0 0;
+    --primary: 0.60 0.15 45.0;
+    /* Warm orange for primary actions */
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.27 0 0;
+    /* Subtle highlight */
+    --secondary-foreground: 0.90 0 0;
+    --muted: 0.25 0 0;
+    /* Dimmer backgrounds */
+    --muted-foreground: 0.65 0 0;
+    /* #a3a3a3 Secondary text */
+    --accent: 0.27 0 0;
+    /* Hover state */
+    --accent-foreground: 0.95 0 0;
+    --destructive: 0.60 0.20 25.0;
+    /* Error red */
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.27 0 0;
+    /* Subtle borders */
+    --input: 0.27 0 0;
+    --ring: 0.60 0.15 45.0;
+    /* Orange focus ring */
+    --sidebar: 0.23 0 0;
+    /* #202020 Lighter sidebar */
+    --sidebar-foreground: 0.85 0 0;
+    --sidebar-primary: 0.60 0.15 45.0;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.27 0 0;
+    --sidebar-accent-foreground: 0.95 0 0;
+    --sidebar-border: 0.25 0 0;
+    --sidebar-ring: 0.60 0.15 45.0;
+  }
+
+  /* Default un-colored borders/outlines to transparent so no phantom grey box
+     appears around buttons and panels. Components that want a border set an
+     explicit color (e.g. border-border/50), which wins over this base rule.
+     Excalidraw is excluded so its own styles are untouched. */
+  *:not(.excalidraw):not(.excalidraw *) {
+    @apply border-transparent outline-transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ============================================================
+   Custom Animations
+   ============================================================ */
+
+@keyframes loading-bar {
+  0% {
+    width: 0%;
+    transform: translateX(0);
+  }
+
+  50% {
+    width: 60%;
+  }
+
+  100% {
+    width: 100%;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+/* ============================================================
+   Excalidraw Theme Overrides
+   ============================================================ */
+
+/* Remove Excalidraw welcome screen if it slips through */
+.excalidraw .welcome-screen-decor,
+.excalidraw .welcome-screen-center {
+  display: none !important;
+}
+
+/* ============================================================
+   Scrollbar Styling (Developer Tool Aesthetic)
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.3 0 0 / 40%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.4 0 0 / 60%);
+}
+
+/* ============================================================
+   Selection Styling
+   ============================================================ */
+
+::selection {
+  background: oklch(0.60 0.15 45 / 30%); /* primary orange */
+  color: inherit;
+}

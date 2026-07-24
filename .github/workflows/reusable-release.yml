@@ -118,7 +118,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.target-sha }}
           fetch-depth: 1
@@ -147,10 +147,12 @@ jobs:
           sudo apt-get install -y ${LINUX_SYSTEM_PACKAGES}
 
       - name: Install frontend dependencies
-        working-directory: ${{ inputs.frontend-directory }}
+        shell: bash
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          bash .github/scripts/install-frontend-dependencies.sh \
+            "${{ inputs.frontend-directory }}"
 
       - name: Build
         shell: bash

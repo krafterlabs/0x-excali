@@ -17,7 +17,7 @@ build:
 # Optimized production build for macOS arm64 (used by GitHub Actions)
 production-deploy:
 	@echo "Building optimized production version for macOS arm64..."
-	wails build -platform macos/arm64 -m -s -clean
+	wails build -platform darwin/arm64 -m -s -clean
 
 # Run the application in development mode
 dev:

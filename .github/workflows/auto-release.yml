@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   production:
-    name: Production Release
+    name: Release
     if: github.event.pull_request.merged == true
     uses: ./.github/workflows/reusable-release.yml
 
@@ -47,9 +47,10 @@ jobs:
             "id": "macos-arm64",
             "name": "macOS arm64",
             "runner_label": "macos-latest",
+            "build_command": "wails build -platform darwin/arm64 -m -s -clean",
             "build_directory": "build/bin",
             "artifact_path": "build/bin/0x-excali.app",
             "artifact_platform": "macOS-arm64",
-            "archive_format": "zip"
+            "archive_format": "dmg"
           }
         ]

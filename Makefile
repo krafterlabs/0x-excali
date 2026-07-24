@@ -3,10 +3,21 @@
 # Default target
 all: clean-all build
 
+# Setup local development environment (Git hooks, etc.)
+setup:
+	@echo "Configuring native Git hooks..."
+	git config core.hooksPath .githooks
+	@echo "Setup complete."
+
 # Build the Wails application for production
 build:
 	@echo "Building 0x-excali..."
 	wails build
+
+# Optimized production build for macOS arm64 (used by GitHub Actions)
+production-deploy:
+	@echo "Building optimized production version for macOS arm64..."
+	wails build -platform macos/arm64 -m -s -clean
 
 # Run the application in development mode
 dev:

@@ -1,0 +1,84 @@
+name: Production Build
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos-arm64:
+    if: github.event.pull_request.merged == true
+    name: Build macOS arm64
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Cache Wails CLI
+        uses: actions/cache@v4
+        id: wails-cache
+        with:
+          path: ~/go/bin/wails
+          key: ${{ runner.os }}-wails-cli-v2
+          
+      - name: Install Wails
+        if: steps.wails-cache.outputs.cache-hit != 'true'
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: pnpm install
+
+      - name: Build macOS arm64
+        run: make production-deploy
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 0x-excali-macos-arm64
+          path: build/bin/0x-excali.app
+
+      - name: Zip macOS App
+        run: |
+          cd build/bin
+          zip -r 0x-excali-macOS-arm64.zip 0x-excali.app
+
+      - name: Read Version
+        id: version
+        run: |
+          VERSION=$(cat .version | tr -d '[:space:]')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Upload to Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          draft: true
+          files: build/bin/0x-excali-macOS-arm64.zip

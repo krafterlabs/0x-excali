@@ -11,8 +11,10 @@ Built with **Go (Wails)** for a lightweight, secure backend and **React (Vite + 
 - **GitHub Device Flow Authentication:** Securely log in using your GitHub account without exposing client secrets or relying on web callbacks. Tokens are encrypted locally (AES-256-GCM).
 - **Excalidraw Integration:** Full-featured Excalidraw canvas embedded directly in the app. App chrome (header, sidebar, breadcrumbs) stays outside the canvas and app styles are isolated from Excalidraw's internals.
 - **Workspace Management:** Each workspace maps to a GitHub repository; the file tree is cached locally in SQLite for fast browsing and offline editing.
-- **Explicit Sync:** No background polling. Sync runs **at app startup and on manual trigger** only, and always **pushes queued local changes first, then pulls** the remote tree — so deletes and edits are committed before the pull and never resurrected. See [Sync behavior](#sync-behavior).
+- **Global Search Palette:** Instantly search across diagram file names, paths, favourites, and recently opened files using `Cmd+K` / `Ctrl+K`.
+- **Explicit Sync:** Automatically syncs on app load, or manually via the UI. Always **pushes queued local changes first, then pulls** the remote tree — so deletes and edits are committed before the pull and never resurrected. See [Sync behavior](#sync-behavior).
 - **Beautiful UI:** Styled with Shadcn UI, featuring a dynamic dark mode based on high-contrast OKLCH CSS variables.
+- **Robust CI/CD Automation:** Built-in GitHub Actions automatically validate PRs (blocking unresolved comments), auto-draft release notes on merge, and compile optimized macOS Apple Silicon binaries.
 
 ## Sync behavior
 

@@ -1,0 +1,73 @@
+name: Setup Wails
+
+description: Setup Go, Node.js, pnpm and Wails with caching
+
+inputs:
+  go-version-file:
+    required: false
+    default: go.mod
+
+  go-cache-dependency-path:
+    required: false
+    default: go.sum
+
+  node-version:
+    required: false
+    default: "20"
+
+  pnpm-version:
+    required: false
+    default: "9"
+
+  pnpm-lockfile:
+    required: false
+    default: frontend/pnpm-lock.yaml
+
+runs:
+  using: composite
+
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ inputs.go-version-file }}
+        cache: true
+        cache-dependency-path: ${{ inputs.go-cache-dependency-path }}
+
+    - name: Add Go bin to PATH
+      shell: bash
+      run: echo "$(go env GOPATH)/bin" >> "${GITHUB_PATH}"
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+        run_install: false
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.pnpm-lockfile }}
+
+    - name: Resolve Wails version
+      id: wails
+      shell: bash
+      run: bash .github/scripts/install-wails.sh --print-version
+
+    - name: Cache Wails
+      id: wails-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/go/bin/wails
+        key: wails-${{ runner.os }}-${{ runner.arch }}-${{ steps.wails.outputs.version }}
+
+    - name: Install Wails
+      if: steps.wails-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: bash .github/scripts/install-wails.sh
+
+    - name: Verify Wails
+      shell: bash
+      run: bash .github/scripts/install-wails.sh --verify

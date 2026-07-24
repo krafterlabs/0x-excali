@@ -63,9 +63,32 @@ The frontend is a single-page application built with **React, TypeScript, and Vi
   - **Color rule:** orange is reserved for the primary action and selection; borders are neutral. Un-colored borders/outlines default to `transparent` in the base reset so no phantom box appears around buttons/panels; components opt into a border with an explicit color. Buttons carry no focus ring.
   - **Excalidraw isolation:** the base reset explicitly excludes `.excalidraw` (`*:not(.excalidraw):not(.excalidraw *)`) so app styles never leak into the canvas, which owns its own toolbar/menus/theme via the supported `theme` prop.
 
-> **Note on search:** the command-palette / `Cmd+K` search was removed; there is currently no in-app search.
+### Search & Navigation
+- **Command Palette:** The `SearchPalette.tsx` implements a global fuzzy search using `shadcn/command`. It binds to `Cmd+K` / `Ctrl+K` and searches across diagram file names, workspace paths, pinned favorites, and recently opened diagrams.
 
 ### Wails Integration
 When the Go backend is compiled, Wails reads all exported structs and methods and generates TypeScript interfaces and client functions in `frontend/wailsjs/go/`. 
 
 The React application imports these functions (e.g., `import { StartDeviceFlow } from '../../wailsjs/go/github/AuthService'`) and calls them asynchronously. Wails handles the IPC bridge between the browser window and the underlying Go process transparently.
+
+---
+
+## CI/CD Pipeline
+
+The repository utilizes highly optimized GitHub Actions for Continuous Integration and Continuous Deployment.
+
+1. **Pre-Merge Validation (`validate-pr.yml`):**
+   - Automatically triggered on all PRs targeting `master`.
+   - Strictly validates that the `.version` file has been bumped.
+   - Executes a GraphQL query to block the PR merge if there are any **unresolved code review threads**.
+   - Path-filtering ignores non-code files (e.g., `.md`) to save runner time.
+
+2. **Post-Merge Release Architecture (`release.yml`):**
+   - Orchestrates the deployment lifecycle after a PR is successfully merged.
+   - Calls **Reusable Workflows**:
+     - `tag.yml`: Mints the git tag mapped to the `.version` file and creates a Draft GitHub Release.
+     - `build.yml`: Compiles the macOS ARM64 binary (`make production-deploy`), aggressively caching the `~/go/bin/wails` CLI. Once compiled, it zips the `.app` bundle and automatically attaches it to the drafted release.
+   - Uses strict mid-air concurrency cancellation to kill redundant queued pipelines and save runner costs.
+
+3. **Native Git Hooks:**
+   - The repository uses strict `.githooks/pre-commit` hooks (enabled via `make setup`) instead of Node-based `husky`, enforcing a `make build` execution locally before any commit can be created.

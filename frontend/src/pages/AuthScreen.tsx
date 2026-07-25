@@ -121,7 +121,7 @@ export function AuthScreen() {
             Welcome to 0x-Excali
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your lightweight, local-first Excalidraw desktop experience.
+            Your lightweight, local-first desktop experience for Excalidraw diagrams.
           </p>
         </div>
 

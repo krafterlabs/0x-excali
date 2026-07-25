@@ -2,6 +2,8 @@
 
 0x-excali is a lightweight, cross-platform desktop application designed to synchronize and manage [Excalidraw](https://excalidraw.com/) diagrams directly with your GitHub repositories. 
 
+> **Note:** 0x-excali is an independent desktop application built using the open-source Excalidraw package. It is not affiliated with, endorsed by, or sponsored by Excalidraw.
+
 By linking local workspaces to GitHub, you can seamlessly edit your `.excalidraw` files locally with a built-in canvas and sync them back to the cloud, allowing you to use GitHub as a decentralized storage solution for your diagrams.
 
 Built with **Go (Wails)** for a lightweight, secure backend and **React (Vite + TailwindCSS + Shadcn UI)** for a beautiful, modern frontend.
@@ -77,3 +79,11 @@ Contributions are highly welcome! To contribute:
 5. Open a Pull Request.
 
 Please refer to the `docs/architecture.md` file for an overview of the codebase to help you get oriented before making architectural changes.
+
+## Community & Licensing
+
+- **License:** [MIT License](LICENSE)
+- **Third-Party Notices:** [Notices](THIRD_PARTY_NOTICES.md) for open-source dependencies (including Excalidraw)
+- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the app and contribute code
+- **Code of Conduct:** Please follow our [Community Guidelines](CODE_OF_CONDUCT.md)
+- **Security Policy:** See [SECURITY.md](SECURITY.md) on how to report vulnerabilities

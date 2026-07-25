@@ -207,5 +207,8 @@ jobs:
           target_commitish: ${{ inputs.target-sha }}
           draft: ${{ inputs.release-draft }}
           generate_release_notes: ${{ inputs.generate-release-notes }}
-          fail_on_unmatched_files: true
-          files: ${{ steps.package.outputs.path }}
+          fail_on_unmatched_files: false
+          files: |
+            ${{ steps.package.outputs.path }}
+            LICENSE
+            THIRD_PARTY_NOTICES.md

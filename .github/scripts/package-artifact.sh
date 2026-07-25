@@ -86,6 +86,13 @@ create_dmg() {
   cp -R "${artifact_path}" "${staging_directory}/${app_bundle_name}"
   ln -s /Applications "${staging_directory}/Applications"
 
+  if [[ -f "THIRD_PARTY_NOTICES.md" ]]; then
+    cp "THIRD_PARTY_NOTICES.md" "${staging_directory}/"
+  fi
+  if [[ -f "LICENSE" ]]; then
+    cp "LICENSE" "${staging_directory}/"
+  fi
+
   hdiutil create \
     -volname "${app_name}" \
     -srcfolder "${staging_directory}" \

@@ -1,55 +1,50 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from "react";
 
-// Excalidraw is a heavy dependency — lazy-load it
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
+
 import { EditorHeader } from "@/components/layout/EditorHeader";
+import { Button } from "@/components/ui/button";
+
+type ExcalidrawComponentProps = ComponentProps<typeof Excalidraw>;
+type OnChangeFn = NonNullable<ExcalidrawComponentProps["onChange"]>;
+type ExcalidrawElement = Parameters<OnChangeFn>[0][number];
+type AppState = Parameters<OnChangeFn>[1];
+type BinaryFiles = Parameters<OnChangeFn>[2];
+type ExcalidrawInitialDataState = NonNullable<ExcalidrawComponentProps["initialData"]>;
 
 interface CanvasViewProps {
-  id: string; // URL-encoded file path
+  id: string;
 }
 
-/**
- * CanvasView — Fullscreen Excalidraw canvas for editing diagrams.
- *
- * - Strips all default Excalidraw templates and welcome screens
- * - Loads existing content from the Go backend
- * - Auto-saves on change (debounced 1.5s)
- * - Floating "Back" button to return to dashboard
- */
 export function CanvasView({ id }: CanvasViewProps) {
   const [, setLocation] = useLocation();
   const filePath = decodeURIComponent(id);
 
-  const [initialData, setInitialData] = useState<any>(null);
+  const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [excalidrawTheme, setExcalidrawTheme] = useState<"dark" | "light">("dark");
 
-  // Refs for debounced save
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef<string>("");
 
-  // Load diagram content on mount
   useEffect(() => {
     let cancelled = false;
 
     async function loadDiagram() {
       try {
-        // Load theme setting
         try {
           const { GetSettings } = await import("../../wailsjs/go/settings/Service");
           const config = await GetSettings();
           setExcalidrawTheme((config.excalidrawTheme as "dark" | "light") || "dark");
         } catch {
-          // Use default
+          void 0;
         }
 
-        // Load diagram content
         const { GetDiagram } = await import("../../wailsjs/go/workspace/Service");
         const content = await GetDiagram(filePath);
 
@@ -67,7 +62,6 @@ export function CanvasView({ id }: CanvasViewProps) {
               files: parsed.files || {},
             });
           } catch {
-            // Invalid JSON — start with blank canvas
             setInitialData({
               elements: [],
               appState: { collaborators: new Map() },
@@ -75,7 +69,6 @@ export function CanvasView({ id }: CanvasViewProps) {
             });
           }
         } else {
-          // New/empty diagram
           setInitialData({
             elements: [],
             appState: { collaborators: new Map() },
@@ -84,9 +77,9 @@ export function CanvasView({ id }: CanvasViewProps) {
         }
 
         setLoading(false);
-      } catch (err: any) {
+      } catch (err) {
         if (!cancelled) {
-          setError(err?.message || "Failed to load diagram");
+          setError(err instanceof Error ? err.message : "Failed to load diagram");
           setLoading(false);
         }
       }
@@ -98,20 +91,20 @@ export function CanvasView({ id }: CanvasViewProps) {
     };
   }, [filePath]);
 
-  // Cleanup save timeout on unmount
   useEffect(() => {
     return () => {
-      // Save any pending changes before unmounting
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         if (latestContentRef.current) {
-          performSave(latestContentRef.current);
+          const contentToSave = latestContentRef.current;
+          import("../../wailsjs/go/workspace/Service")
+            .then(({ SaveDiagram }) => SaveDiagram(filePath, contentToSave))
+            .catch(console.error);
         }
       }
     };
-  }, []);
+  }, [filePath]);
 
-  // Perform the actual save
   const performSave = useCallback(
     async (content: string) => {
       setSaving(true);
@@ -126,10 +119,8 @@ export function CanvasView({ id }: CanvasViewProps) {
     [filePath]
   );
 
-  // Handle Excalidraw changes (debounced auto-save)
   const handleChange = useCallback(
-    (elements: readonly any[], appState: any, files: any) => {
-      // Serialize to .excalidraw format
+    (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       const content = JSON.stringify(
         {
           type: "excalidraw",
@@ -148,7 +139,6 @@ export function CanvasView({ id }: CanvasViewProps) {
 
       latestContentRef.current = content;
 
-      // Debounce save: 1.5 seconds after last change
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -159,7 +149,6 @@ export function CanvasView({ id }: CanvasViewProps) {
     [performSave]
   );
 
-  // Loading state
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-background">
@@ -171,7 +160,6 @@ export function CanvasView({ id }: CanvasViewProps) {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background">
@@ -185,9 +173,8 @@ export function CanvasView({ id }: CanvasViewProps) {
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      <EditorHeader filePath={filePath} saving={saving} />
-      
-      {/* Excalidraw Container */}
+      <EditorHeader saving={saving} />
+
       <div className="relative flex-1 w-full">
         {initialData && (
           <Excalidraw

@@ -1,33 +1,48 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { FileText, History, LayoutTemplate, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
+
 import { AppShell } from "@/components/layout/AppShell";
-import { CanvasView } from "@/pages/CanvasView";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, FileText, LayoutTemplate, History } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
+import { CanvasView } from "@/pages/CanvasView";
+
+import { database } from "../../wailsjs/go/models";
 
 interface WorkspaceProps {
-  fileId?: string; // URL-encoded path if a file is open
+  fileId?: string;
+}
+
+export interface TreeNode extends database.FileNode {
+  children: TreeNode[];
 }
 
 export function Workspace({ fileId }: WorkspaceProps) {
   const [, setLocation] = useLocation();
-  const [workspace, setWorkspace] = useState<any>(null);
-  const [fileTree, setFileTree] = useState<any[]>([]);
-  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "error" | "offline">("synced");
+  const [workspace, setWorkspace] = useState<database.Workspace | null>(null);
+  const [fileTree, setFileTree] = useState<TreeNode[]>([]);
+  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "error" | "offline">(
+    "synced"
+  );
   const [dirtyCount, setDirtyCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [authUser, setAuthUser] = useState<{
+    username: string;
+    avatar_url: string;
+    email: string;
+  } | null>(null);
 
   const hasSyncedOnLoad = useRef(false);
 
-  // Dialogs
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewDiagram, setShowNewDiagram] = useState(false);
   const [newItemName, setNewItemName] = useState("");
@@ -41,7 +56,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
       try {
         const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount } =
           await import("../../wailsjs/go/workspace/Service");
-        
+
         const ws = await GetActiveWorkspace();
         if (!ws) {
           setLocation("/setup-workspace");
@@ -55,6 +70,16 @@ export function Workspace({ fileId }: WorkspaceProps) {
         const dirty = await GetDirtyFileCount();
         if (!cancelled) setDirtyCount(dirty);
 
+        const { GetAuthStatus } = await import("../../wailsjs/go/github/AuthService");
+        const auth = await GetAuthStatus();
+        if (auth?.authenticated && !cancelled) {
+          setAuthUser({
+            username: auth.username,
+            avatar_url: auth.avatar_url,
+            email: auth.email,
+          });
+        }
+
         if (!cancelled) setLoading(false);
       } catch (err) {
         console.error("Workspace load error:", err);
@@ -64,7 +89,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
     loadData();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [setLocation]);
 
   useEffect(() => {
@@ -72,19 +99,34 @@ export function Workspace({ fileId }: WorkspaceProps) {
     async function setupEvents() {
       try {
         const { EventsOn } = await import("../../wailsjs/runtime/runtime");
-        EventsOn("sync:started", () => { if (!cancelled) setSyncStatus("syncing"); });
-        EventsOn("sync:completed", () => { if (!cancelled) setSyncStatus("synced"); });
-        EventsOn("sync:error", () => { if (!cancelled) setSyncStatus("error"); });
-        EventsOn("workspace:updated", () => { if (!cancelled) refreshTree(); });
-      } catch {}
+        EventsOn("sync:started", () => {
+          if (!cancelled) setSyncStatus("syncing");
+        });
+        EventsOn("sync:completed", () => {
+          if (!cancelled) setSyncStatus("synced");
+        });
+        EventsOn("sync:error", () => {
+          if (!cancelled) setSyncStatus("error");
+        });
+        EventsOn("workspace:updated", () => {
+          if (!cancelled) refreshTree();
+        });
+      } catch {
+        void 0;
+      }
     }
     setupEvents();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshTree = useCallback(async () => {
     try {
-      const { GetFolderContents, GetDirtyFileCount } = await import("../../wailsjs/go/workspace/Service");
+      const { GetFolderContents, GetDirtyFileCount } =
+        await import("../../wailsjs/go/workspace/Service");
       const allNodes = await loadAllNodes(GetFolderContents);
       setFileTree(buildTree(allNodes));
       const dirty = await GetDirtyFileCount();
@@ -95,18 +137,35 @@ export function Workspace({ fileId }: WorkspaceProps) {
   }, []);
 
   const handleForceSync = useCallback(async () => {
+    toast.add({
+      title: "Started syncing",
+      description: "Sync in progress...",
+      type: "info",
+      timeout: 3000,
+    });
     setSyncStatus("syncing");
     try {
       const { SyncFileTree } = await import("../../wailsjs/go/workspace/Service");
       await SyncFileTree();
       await refreshTree();
       setSyncStatus("synced");
-    } catch {
-      setSyncStatus("error");
+      toast.add({
+        title: "Sync completed",
+        description: `Synced to github (${workspace?.name}) is complete.`,
+        type: "success",
+        timeout: 5000,
+      });
+    } catch (err) {
+      console.error("Sync error:", err);
+      toast.add({
+        title: "Sync failed",
+        description: err instanceof Error ? err.message : "Could not synchronize with GitHub.",
+        type: "error",
+        timeout: 5000,
+      });
     }
-  }, [refreshTree]);
+  }, [refreshTree, workspace?.name]);
 
-  // Trigger sync exactly once on app load
   useEffect(() => {
     if (workspace && !loading && !hasSyncedOnLoad.current) {
       hasSyncedOnLoad.current = true;
@@ -124,14 +183,11 @@ export function Workspace({ fileId }: WorkspaceProps) {
     }
   }, [setLocation]);
 
-  // A name is invalid if empty, dot-prefixed (reserved for .gitkeep/.settings),
-  // or contains a path separator.
   const nameInvalid = (() => {
     const n = newItemName.trim();
     return !n || n.startsWith(".") || n.includes("/");
   })();
 
-  // Folder actions
   const confirmCreateFolder = async () => {
     if (nameInvalid) return;
     setCreating(true);
@@ -141,7 +197,15 @@ export function Workspace({ fileId }: WorkspaceProps) {
       await CreateFolder(path);
       await refreshTree();
       setShowNewFolder(false);
-    } catch (err) {}
+    } catch (err) {
+      console.error("Create folder error:", err);
+      toast.add({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to create folder",
+        type: "error",
+        timeout: 5000,
+      });
+    }
     setCreating(false);
   };
 
@@ -153,10 +217,20 @@ export function Workspace({ fileId }: WorkspaceProps) {
       await CreateDiagram(newItemParent, newItemName.trim());
       await refreshTree();
       setShowNewDiagram(false);
-      // Auto open
-      const path = newItemParent ? `${newItemParent}/${newItemName.trim()}.excalidraw` : `${newItemName.trim()}.excalidraw`;
+
+      const path = newItemParent
+        ? `${newItemParent}/${newItemName.trim()}.excalidraw`
+        : `${newItemName.trim()}.excalidraw`;
       setLocation(`/workspace/${encodeURIComponent(path)}`);
-    } catch (err) {}
+    } catch (err) {
+      console.error("Create diagram error:", err);
+      toast.add({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to create diagram",
+        type: "error",
+        timeout: 5000,
+      });
+    }
     setCreating(false);
   };
 
@@ -168,7 +242,15 @@ export function Workspace({ fileId }: WorkspaceProps) {
       if (fileId && decodeURIComponent(fileId) === path) {
         setLocation("/workspace");
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.add({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to delete item",
+        type: "error",
+        timeout: 5000,
+      });
+    }
   };
 
   if (loading) {
@@ -181,23 +263,34 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const headerProps = {
     workspace,
+    activeFile: fileId ? decodeURIComponent(fileId) : undefined,
     syncStatus,
     dirtyCount,
-    onLogout: handleLogout,
     onSync: handleForceSync,
   };
 
   const sidebarProps = {
+    workspace,
+    authUser,
+    onLogout: handleLogout,
+    onSync: handleForceSync,
     fileTree,
     onFileClick: (path: string) => setLocation(`/workspace/${encodeURIComponent(path)}`),
-    onCreateFolder: (parentPath?: string) => { setNewItemParent(parentPath || ""); setNewItemName(""); setShowNewFolder(true); },
-    onCreateDiagram: (parentPath?: string) => { setNewItemParent(parentPath || ""); setNewItemName(""); setShowNewDiagram(true); },
+    onCreateFolder: (parentPath?: string) => {
+      setNewItemParent(parentPath || "");
+      setNewItemName("");
+      setShowNewFolder(true);
+    },
+    onCreateDiagram: (parentPath?: string) => {
+      setNewItemParent(parentPath || "");
+      setNewItemName("");
+      setShowNewDiagram(true);
+    },
     onDelete: handleDelete,
   };
 
   return (
     <AppShell headerProps={headerProps} sidebarProps={sidebarProps}>
-      {/* Main Content Area */}
       {fileId ? (
         <CanvasView id={fileId} key={fileId} />
       ) : (
@@ -222,17 +315,32 @@ export function Workspace({ fileId }: WorkspaceProps) {
         </div>
       )}
 
-      {/* Dialogs */}
       <Dialog open={showNewFolder} onOpenChange={setShowNewFolder}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>New Folder</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>New Folder</DialogTitle>
+          </DialogHeader>
           <div className="py-2">
-            {newItemParent && <p className="text-xs text-muted-foreground mb-2">Inside: <code>{newItemParent}/</code></p>}
-            <Input autoFocus placeholder="Folder name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && confirmCreateFolder()} />
-            {newItemName.trim().startsWith(".") && <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>}
+            {newItemParent && (
+              <p className="text-xs text-muted-foreground mb-2">
+                Inside: <code>{newItemParent}/</code>
+              </p>
+            )}
+            <Input
+              autoFocus
+              placeholder="Folder name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && confirmCreateFolder()}
+            />
+            {newItemName.trim().startsWith(".") && (
+              <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewFolder(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowNewFolder(false)}>
+              Cancel
+            </Button>
             <Button onClick={confirmCreateFolder} disabled={nameInvalid || creating}>
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
             </Button>
@@ -242,14 +350,30 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
       <Dialog open={showNewDiagram} onOpenChange={setShowNewDiagram}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>New Diagram</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>New Diagram</DialogTitle>
+          </DialogHeader>
           <div className="py-2">
-            {newItemParent && <p className="text-xs text-muted-foreground mb-2">Inside: <code>{newItemParent}/</code></p>}
-            <Input autoFocus placeholder="Diagram name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && confirmCreateDiagram()} />
-            {newItemName.trim().startsWith(".") && <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>}
+            {newItemParent && (
+              <p className="text-xs text-muted-foreground mb-2">
+                Inside: <code>{newItemParent}/</code>
+              </p>
+            )}
+            <Input
+              autoFocus
+              placeholder="Diagram name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && confirmCreateDiagram()}
+            />
+            {newItemName.trim().startsWith(".") && (
+              <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewDiagram(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowNewDiagram(false)}>
+              Cancel
+            </Button>
             <Button onClick={confirmCreateDiagram} disabled={nameInvalid || creating}>
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
             </Button>
@@ -260,27 +384,25 @@ export function Workspace({ fileId }: WorkspaceProps) {
   );
 }
 
-// Walks every folder depth-first via GetFolderContents (which returns only the
-// direct children of a path) and returns a flat list of all nodes for buildTree.
-async function loadAllNodes(getFolderContents: (parentPath: string) => Promise<any[]>): Promise<any[]> {
-  const all: any[] = [];
+async function loadAllNodes(
+  getFolderContents: (parentPath: string) => Promise<database.FileNode[]>
+): Promise<database.FileNode[]> {
+  const all: database.FileNode[] = [];
   const walk = async (parentPath: string) => {
     const children = (await getFolderContents(parentPath)) || [];
     for (const child of children) {
-      // Hide internal/hidden entries (.gitkeep, .settings, .git, any dotfile).
-      // Skipping a hidden folder also skips descending into it.
       if (child.name.startsWith(".")) continue;
       all.push(child);
-      if (child.type === "folder") await walk(child.path);
+      if (child.type === "folder" || child.type === "tree") await walk(child.path);
     }
   };
   await walk("");
   return all;
 }
 
-function buildTree(nodes: any[]): any[] {
-  const map = new Map<string, any>();
-  const roots: any[] = [];
+function buildTree(nodes: database.FileNode[]): TreeNode[] {
+  const map = new Map<string, TreeNode>();
+  const roots: TreeNode[] = [];
   for (const node of nodes) map.set(node.path, { ...node, children: [] });
   for (const node of nodes) {
     const treeNode = map.get(node.path)!;

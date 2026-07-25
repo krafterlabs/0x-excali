@@ -1,89 +1,83 @@
 # 0x-excali
 
-0x-excali is a lightweight, cross-platform desktop application designed to synchronize and manage [Excalidraw](https://excalidraw.com/) diagrams directly with your GitHub repositories. 
+A lightweight desktop app for editing and syncing [Excalidraw](https://excalidraw.com/) diagrams with GitHub repositories.
 
-> **Note:** 0x-excali is an independent desktop application built using the open-source Excalidraw package. It is not affiliated with, endorsed by, or sponsored by Excalidraw.
+> 0x-excali is an independent project. It is not affiliated with, endorsed by, or sponsored by Excalidraw.
 
-By linking local workspaces to GitHub, you can seamlessly edit your `.excalidraw` files locally with a built-in canvas and sync them back to the cloud, allowing you to use GitHub as a decentralized storage solution for your diagrams.
-
-Built with **Go (Wails)** for a lightweight, secure backend and **React (Vite + TailwindCSS + Shadcn UI)** for a beautiful, modern frontend.
+Built with **Go + Wails** and **React + Vite + TailwindCSS**.
 
 ## Features
 
-- **GitHub Device Flow Authentication:** Securely log in using your GitHub account without exposing client secrets or relying on web callbacks. Tokens are encrypted locally (AES-256-GCM).
-- **Excalidraw Integration:** Full-featured Excalidraw canvas embedded directly in the app. App chrome (header, sidebar, breadcrumbs) stays outside the canvas and app styles are isolated from Excalidraw's internals.
-- **Workspace Management:** Each workspace maps to a GitHub repository; the file tree is cached locally in SQLite for fast browsing and offline editing.
-- **Global Search Palette:** Instantly search across diagram file names, paths, favourites, and recently opened files using `Cmd+K` / `Ctrl+K`.
-- **Explicit Sync:** Automatically syncs on app load, or manually via the UI. Always **pushes queued local changes first, then pulls** the remote tree — so deletes and edits are committed before the pull and never resurrected. See [Sync behavior](#sync-behavior).
-- **Beautiful UI:** Styled with Shadcn UI, featuring a dynamic dark mode based on high-contrast OKLCH CSS variables.
-- **Robust CI/CD Automation:** Built-in GitHub Actions automatically validate PRs (blocking unresolved comments), auto-draft release notes on merge, and compile optimized macOS Apple Silicon binaries.
+- **GitHub Auth** — Device Flow login, tokens encrypted locally (AES-256-GCM)
+- **Excalidraw Canvas** — Full-featured canvas embedded in-app, style-isolated from app chrome
+- **Workspace Sync** — Maps to a GitHub repo; push-then-pull sync keeps remote and local consistent
+- **SQLite Cache** — Fast local file tree browsing with offline editing support
+- **Search Palette** — `Cmd+K` / `Ctrl+K` to search files, favourites, and recent items
+- **Shadcn UI** — Modern, Next.js-style UI components including toasts for sync events
 
-## Sync behavior
+## Installation (macOS)
 
-- **When it runs:** on app startup and when you click **Sync Changes** (or the header sync icon). There is no periodic background sync.
-- **Order:** push-then-pull. Local creates/updates/deletes are queued as you work, flushed to GitHub on sync, and only then is the remote tree pulled back into the local cache.
-- **Commits:** each queued file operation is a commit via the GitHub Contents API, using the message `"<ISO-timestamp> — <N> file(s) changed"` for the batch. (One commit per file; true single-commit batching would require the Git Trees API.)
-- **Folders:** GitHub has no folder objects, so deleting a folder deletes every file under it; empty folders are represented by a `.gitkeep` placeholder.
-- **Offline:** edits are saved locally and queued; the queue flushes on the next sync.
+Download the latest `.dmg` from [Releases](../../releases), open it, and drag **0x-excali** to your Applications folder.
 
-## Getting Started / How to Build
+**First launch — Gatekeeper prompt**
 
-### Prerequisites
-- [Go 1.21+](https://go.dev/)
-- [Node.js 18+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/)
-- [Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+Because 0x-excali is not yet notarized through the Mac App Store, macOS may show _"0x-excali can't be opened"_. To allow it:
 
-### Development Setup
+**Option A — Right-click method (no Terminal needed)**
+> Right-click (or Control-click) the app → **Open** → click **Open** in the dialog.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/0x-excali.git
-   cd 0x-excali
-   ```
+**Option B — Terminal one-liner**
+```bash
+xattr -dr com.apple.quarantine /Applications/0x-excali.app
+```
+Then double-click the app normally. You only need to do this once.
 
-2. **Configure your GitHub OAuth App:**
-   - Go to [GitHub Developer Settings](https://github.com/settings/developers) -> OAuth Apps -> New OAuth App.
-   - Name: `0x-excali` (or any preferred name).
-   - Homepage URL: `https://github.com`.
-   - Authorization callback URL: `http://localhost` (not used by device flow but required by GitHub).
-   - Ensure you check **"Enable Device Flow"**.
-   - Copy the Client ID.
-   - Open `internal/github/auth.go` and replace the `ClientID` variable with your new Client ID.
+## Quick Start
 
-3. **Run the Development Server:**
-   ```bash
-   make dev
-   # or
-   wails dev
-   ```
-   This will start both the Go backend and the Vite frontend server with hot-reloading enabled.
-
-### Building for Production
-
-To compile a standalone executable for your operating system:
+**Prerequisites:** Go 1.21+, Node.js 18+, pnpm, [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 
 ```bash
-wails build
+# 1. Clone
+git clone https://github.com/yourusername/0x-excali.git && cd 0x-excali
+
+# 2. Set up Git hooks
+make setup
+
+# 3. Install frontend deps
+cd frontend && pnpm install
+
+# 4. Configure GitHub OAuth
+#    → GitHub Settings → Developer Settings → OAuth Apps → New OAuth App
+#    → Enable Device Flow, copy the Client ID
+#    → Paste it in internal/github/auth.go (ClientID variable)
+
+# 5. Run dev server
+make dev
 ```
-The compiled binary will be placed in the `build/bin/` directory.
 
-## How to Contribute
+## Build
 
-Contributions are highly welcome! To contribute:
+```bash
+# Local build
+make build
 
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m 'Add amazing feature'`).
-4. Push to the branch (`git push origin feature/amazing-feature`).
-5. Open a Pull Request.
+# Optimised macOS arm64 release (obfuscated + compressed)
+make production-deploy
+```
 
-Please refer to the `docs/architecture.md` file for an overview of the codebase to help you get oriented before making architectural changes.
+Output: `build/bin/`
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). All review threads must be resolved before merge. Update `.version` when your change warrants a release.
 
 ## Community & Licensing
 
-- **License:** [MIT License](LICENSE)
-- **Third-Party Notices:** [Notices](THIRD_PARTY_NOTICES.md) for open-source dependencies (including Excalidraw)
-- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the app and contribute code
-- **Code of Conduct:** Please follow our [Community Guidelines](CODE_OF_CONDUCT.md)
-- **Security Policy:** See [SECURITY.md](SECURITY.md) on how to report vulnerabilities
+| | |
+|---|---|
+| License | [MIT](LICENSE) |
+| Third-party notices | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Code of Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Security | [SECURITY.md](SECURITY.md) |
+| Architecture | [docs/architecture.md](docs/architecture.md) |

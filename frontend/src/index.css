@@ -35,21 +35,21 @@
   }
 
   .app-dark {
-    --background: 0.20 0 0;
+    --background: 0.2 0 0;
     /* #1a1a1a Main background */
-    --foreground: 0.90 0 0;
+    --foreground: 0.9 0 0;
     /* #e6e6e6 Primary text */
     --card: 0.25 0 0;
     /* #262626 Elevated surfaces */
-    --card-foreground: 0.90 0 0;
+    --card-foreground: 0.9 0 0;
     --popover: 0.25 0 0;
-    --popover-foreground: 0.90 0 0;
-    --primary: 0.60 0.15 45.0;
+    --popover-foreground: 0.9 0 0;
+    --primary: 0.6 0.15 45;
     /* Warm orange for primary actions */
     --primary-foreground: 0.98 0 0;
     --secondary: 0.27 0 0;
     /* Subtle highlight */
-    --secondary-foreground: 0.90 0 0;
+    --secondary-foreground: 0.9 0 0;
     --muted: 0.25 0 0;
     /* Dimmer backgrounds */
     --muted-foreground: 0.65 0 0;
@@ -57,23 +57,23 @@
     --accent: 0.27 0 0;
     /* Hover state */
     --accent-foreground: 0.95 0 0;
-    --destructive: 0.60 0.20 25.0;
+    --destructive: 0.6 0.2 25;
     /* Error red */
     --destructive-foreground: 0.98 0 0;
     --border: 0.27 0 0;
     /* Subtle borders */
     --input: 0.27 0 0;
-    --ring: 0.60 0.15 45.0;
+    --ring: 0.6 0.15 45;
     /* Orange focus ring */
     --sidebar: 0.23 0 0;
     /* #202020 Lighter sidebar */
     --sidebar-foreground: 0.85 0 0;
-    --sidebar-primary: 0.60 0.15 45.0;
+    --sidebar-primary: 0.6 0.15 45;
     --sidebar-primary-foreground: 0.98 0 0;
     --sidebar-accent: 0.27 0 0;
     --sidebar-accent-foreground: 0.95 0 0;
     --sidebar-border: 0.25 0 0;
-    --sidebar-ring: 0.60 0.15 45.0;
+    --sidebar-ring: 0.6 0.15 45;
   }
 
   /* Default un-colored borders/outlines to transparent so no phantom grey box
@@ -114,7 +114,6 @@
 }
 
 @keyframes pulse-slow {
-
   0%,
   100% {
     opacity: 0.4;
@@ -188,6 +187,7 @@
    ============================================================ */
 
 ::selection {
-  background: oklch(0.60 0.15 45 / 30%); /* primary orange */
+  background: oklch(0.6 0.15 45 / 30%);
+  /* primary orange */
   color: inherit;
 }

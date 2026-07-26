@@ -2,8 +2,35 @@
 # Native Git pre-commit hook
 
 echo "Running pre-commit hook..."
+
+echo "Checking formatting and linting..."
+cd frontend || exit 1
+
+pnpm run format
+if [ $? -ne 0 ]; then
+  echo "Formatting failed. Aborting commit."
+  exit 1
+fi
+
+pnpm run lint:fix
+if [ $? -ne 0 ]; then
+  echo "Linting failed. Aborting commit."
+  exit 1
+fi
+
+pnpm run format:check
+if [ $? -ne 0 ]; then
+  echo "Format check failed. Aborting commit."
+  exit 1
+fi
+
+cd ..
+
+echo "Building application..."
 make build
 if [ $? -ne 0 ]; then
   echo "Build failed. Aborting commit."
   exit 1
 fi
+
+echo "Pre-commit checks passed successfully."

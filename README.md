@@ -1,89 +1,103 @@
 # 0x-excali
 
-0x-excali is a lightweight, cross-platform desktop application designed to synchronize and manage [Excalidraw](https://excalidraw.com/) diagrams directly with your GitHub repositories. 
+A lightweight desktop workspace for organizing Excalidraw drawings and syncing them with GitHub.
 
-> **Note:** 0x-excali is an independent desktop application built using the open-source Excalidraw package. It is not affiliated with, endorsed by, or sponsored by Excalidraw.
+[![Latest Release](https://img.shields.io/github/v/release/krafterlabs/0x-excali?sort=semver)](https://github.com/krafterlabs/0x-excali/releases/latest)
+[![Release](https://github.com/krafterlabs/0x-excali/actions/workflows/auto-release.yml/badge.svg)](https://github.com/krafterlabs/0x-excali/actions/workflows/auto-release.yml)
+[![Validate PR](https://github.com/krafterlabs/0x-excali/actions/workflows/validate-pr.yml/badge.svg)](https://github.com/krafterlabs/0x-excali/actions/workflows/validate-pr.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey)](#downloads)
 
-By linking local workspaces to GitHub, you can seamlessly edit your `.excalidraw` files locally with a built-in canvas and sync them back to the cloud, allowing you to use GitHub as a decentralized storage solution for your diagrams.
+<p align="center">
+  <img src="docs/assets/preview.png" alt="0x-excali desktop workspace preview" width="920">
+</p>
 
-Built with **Go (Wails)** for a lightweight, secure backend and **React (Vite + TailwindCSS + Shadcn UI)** for a beautiful, modern frontend.
+## Overview
 
-## Features
+0x-excali is a native desktop application designed to provide a fast, local-first editing experience for visual thinkers. It elegantly integrates the open-source Excalidraw canvas with a local SQLite cache, automatically syncing your workspaces directly to your remote GitHub repositories. 
 
-- **GitHub Device Flow Authentication:** Securely log in using your GitHub account without exposing client secrets or relying on web callbacks. Tokens are encrypted locally (AES-256-GCM).
-- **Excalidraw Integration:** Full-featured Excalidraw canvas embedded directly in the app. App chrome (header, sidebar, breadcrumbs) stays outside the canvas and app styles are isolated from Excalidraw's internals.
-- **Workspace Management:** Each workspace maps to a GitHub repository; the file tree is cached locally in SQLite for fast browsing and offline editing.
-- **Global Search Palette:** Instantly search across diagram file names, paths, favourites, and recently opened files using `Cmd+K` / `Ctrl+K`.
-- **Explicit Sync:** Automatically syncs on app load, or manually via the UI. Always **pushes queued local changes first, then pulls** the remote tree — so deletes and edits are committed before the pull and never resurrected. See [Sync behavior](#sync-behavior).
-- **Beautiful UI:** Styled with Shadcn UI, featuring a dynamic dark mode based on high-contrast OKLCH CSS variables.
-- **Robust CI/CD Automation:** Built-in GitHub Actions automatically validate PRs (blocking unresolved comments), auto-draft release notes on merge, and compile optimized macOS Apple Silicon binaries.
+## Key Features
 
-## Sync behavior
+- **Local-first drawing workspace** — Fast, offline-capable editing with a local SQLite cache.
+- **GitHub-backed sync** — Push-then-pull automated syncing keeps remote and local files consistent.
+- **Repository-based organization** — Organize your drawings directly inside Git repositories.
+- **Offline editing with queued sync** — Work on a plane, sync when you land.
+- **Desktop app built with Wails** — Ultra-lightweight binaries via Go and React/Vite.
+- **Excalidraw-powered canvas** — Full-featured drawing experience embedded natively.
 
-- **When it runs:** on app startup and when you click **Sync Changes** (or the header sync icon). There is no periodic background sync.
-- **Order:** push-then-pull. Local creates/updates/deletes are queued as you work, flushed to GitHub on sync, and only then is the remote tree pulled back into the local cache.
-- **Commits:** each queued file operation is a commit via the GitHub Contents API, using the message `"<ISO-timestamp> — <N> file(s) changed"` for the batch. (One commit per file; true single-commit batching would require the Git Trees API.)
-- **Folders:** GitHub has no folder objects, so deleting a folder deletes every file under it; empty folders are represented by a `.gitkeep` placeholder.
-- **Offline:** edits are saved locally and queued; the queue flushes on the next sync.
+## Downloads
 
-## Getting Started / How to Build
+Get the latest release from the [GitHub Releases page](https://github.com/krafterlabs/0x-excali/releases/latest).
 
-### Prerequisites
-- [Go 1.21+](https://go.dev/)
-- [Node.js 18+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/)
-- [Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+| Platform | Asset |
+|---|---|
+| macOS | `.dmg` |
+| Linux | `.tar.gz` |
 
-### Development Setup
+## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/yourusername/0x-excali.git
-   cd 0x-excali
-   ```
+### macOS
+Download the latest `.dmg` from the Releases page, open it, and drag **0x-excali** to your Applications folder.
 
-2. **Configure your GitHub OAuth App:**
-   - Go to [GitHub Developer Settings](https://github.com/settings/developers) -> OAuth Apps -> New OAuth App.
-   - Name: `0x-excali` (or any preferred name).
-   - Homepage URL: `https://github.com`.
-   - Authorization callback URL: `http://localhost` (not used by device flow but required by GitHub).
-   - Ensure you check **"Enable Device Flow"**.
-   - Copy the Client ID.
-   - Open `internal/github/auth.go` and replace the `ClientID` variable with your new Client ID.
+**First launch — Gatekeeper prompt**
+Because 0x-excali is not yet notarized through the Mac App Store, macOS may show _"0x-excali can't be opened"_. To allow it:
+1. Right-click (or Control-click) the app in Applications → **Open** → click **Open** in the dialog.
+2. Alternatively, run `xattr -dr com.apple.quarantine /Applications/0x-excali.app` in your Terminal. You only need to do this once.
 
-3. **Run the Development Server:**
-   ```bash
-   make dev
-   # or
-   wails dev
-   ```
-   This will start both the Go backend and the Vite frontend server with hot-reloading enabled.
+### Linux
+Download and extract the latest `.tar.gz`. The extracted directory contains the standalone `0x-excali` binary. You can run this binary directly or add it to your system PATH.
 
-### Building for Production
+## Development
 
-To compile a standalone executable for your operating system:
+**Prerequisites:** 
+- Go `1.25.0` (pinned in `go.mod`)
+- Node.js `24` (pinned in `.nvmrc`)
+- pnpm `11.17.0` (pinned in `packageManager`)
+- [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 
 ```bash
-wails build
+# 1. Clone
+git clone https://github.com/krafterlabs/0x-excali.git && cd 0x-excali
+
+# 2. Set up Git hooks
+make setup
+
+# 3. Install frontend dependencies
+cd frontend && pnpm install
+
+# 4. Configure GitHub OAuth
+#    → Paste your OAuth App Client ID into internal/github/auth.go
+
+# 5. Run dev server
+make dev
 ```
-The compiled binary will be placed in the `build/bin/` directory.
 
-## How to Contribute
+## Production Build
 
-Contributions are highly welcome! To contribute:
+0x-excali uses a unified build script to ensure local production builds perfectly match CI outputs.
 
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m 'Add amazing feature'`).
-4. Push to the branch (`git push origin feature/amazing-feature`).
-5. Open a Pull Request.
+**Build for macOS (Universal):**
+```bash
+./scripts/build-production.sh --target macos --package dmg
+```
 
-Please refer to the `docs/architecture.md` file for an overview of the codebase to help you get oriented before making architectural changes.
+**Build for Linux (amd64):**
+```bash
+./scripts/build-production.sh --target linux --package tar.gz
+```
 
-## Community & Licensing
+## Release Process
 
-- **License:** [MIT License](LICENSE)
-- **Third-Party Notices:** [Notices](THIRD_PARTY_NOTICES.md) for open-source dependencies (including Excalidraw)
-- **Contributing:** See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build the app and contribute code
-- **Code of Conduct:** Please follow our [Community Guidelines](CODE_OF_CONDUCT.md)
-- **Security Policy:** See [SECURITY.md](SECURITY.md) on how to report vulnerabilities
+We utilize an automated release pipeline powered by GitHub Actions:
+1. **Pull Requests**: Code pushed to a PR against `master` triggers the PR validation workflow.
+2. **Merge**: When a PR is merged into `master`, the `auto-release` workflow begins.
+3. **Cross-Platform Compilation**: The pipeline concurrently builds the macOS universal binary and the Linux amd64 binary using `scripts/build-production.sh`.
+4. **Draft Release**: Once both builds succeed, they are aggregated into a single draft GitHub Release. A Git tag (e.g., `v1.2.3`) is created, and the release waits for a maintainer to manually publish it. 
+
+## Attribution
+
+> 0x-excali is an independent, open-source project. It is not affiliated with, endorsed by, or sponsored by Excalidraw. 
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). Third-party notices can be found in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

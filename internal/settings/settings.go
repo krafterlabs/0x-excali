@@ -56,7 +56,7 @@ func DefaultConfig() Config {
 
 // GetSettings retrieves the current settings, or returns defaults if none exist.
 func (s *Service) GetSettings() Config {
-	raw, err := s.db.GetSetting(settingsKey)
+	raw, err := s.db.GetSetting(s.ctx, settingsKey)
 	if err != nil || raw == "" {
 		return DefaultConfig()
 	}
@@ -77,7 +77,7 @@ func (s *Service) UpdateSettings(config Config) error {
 		return fmt.Errorf("failed to serialize settings: %w", err)
 	}
 
-	if err := s.db.SetSetting(settingsKey, string(raw)); err != nil {
+	if err := s.db.SetSetting(s.ctx, settingsKey, string(raw)); err != nil {
 		return fmt.Errorf("failed to save settings: %w", err)
 	}
 

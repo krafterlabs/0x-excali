@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"0x-excali/internal/database"
@@ -33,6 +34,7 @@ type AuthService struct {
 	client *http.Client
 
 	// cancelPoll allows cancelling an in-progress device flow poll
+	mu         sync.Mutex
 	cancelPoll context.CancelFunc
 }
 
@@ -90,7 +92,7 @@ func (a *AuthService) SetContext(ctx context.Context) {
 // GetAuthStatus checks the local DB for a valid stored token and returns the auth state.
 // This is the first call the frontend makes on boot.
 func (a *AuthService) GetAuthStatus() AuthResult {
-	record, err := a.db.GetAuth()
+	record, err := a.db.GetAuth(a.ctx)
 	if err != nil {
 		return AuthResult{Error: fmt.Sprintf("Failed to check auth: %v", err)}
 	}
@@ -103,7 +105,7 @@ func (a *AuthService) GetAuthStatus() AuthResult {
 	if err != nil {
 		// Token can't be decrypted — treat as unauthenticated
 		log.Printf("auth: stored token undecryptable, clearing: %v", err)
-		_ = a.db.DeleteAuth()
+		_ = a.db.DeleteAuth(a.ctx)
 		return AuthResult{Authenticated: false}
 	}
 
@@ -132,6 +134,7 @@ func (a *AuthService) StartDeviceFlow(requestPrivateAccess bool) (*DeviceCodeRes
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req = req.WithContext(a.ctx)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
@@ -164,12 +167,14 @@ func (a *AuthService) StartDeviceFlow(requestPrivateAccess bool) (*DeviceCodeRes
 //   - "auth:error" with error string on failure
 func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn int) {
 	// Cancel any previous poll
+	a.mu.Lock()
 	if a.cancelPoll != nil {
 		a.cancelPoll()
 	}
 
 	pollCtx, cancel := context.WithTimeout(a.ctx, time.Duration(expiresIn)*time.Second)
 	a.cancelPoll = cancel
+	a.mu.Unlock()
 
 	go func() {
 		defer cancel()
@@ -186,8 +191,8 @@ func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn in
 				wailsRuntime.EventsEmit(a.ctx, "auth:error", "Authorization timed out or was cancelled")
 				return
 			case <-time.After(time.Duration(currentInterval) * time.Second):
-				result, newInterval, done := a.pollOnce(deviceCode)
-				
+				result, newInterval, done := a.pollOnce(pollCtx, deviceCode)
+
 				if done {
 					if result.Error != "" {
 						wailsRuntime.EventsEmit(a.ctx, "auth:error", result.Error)
@@ -196,7 +201,7 @@ func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn in
 					}
 					return
 				}
-				
+
 				// Update interval if GitHub requested a slow_down
 				if newInterval > 0 {
 					currentInterval = newInterval
@@ -213,7 +218,7 @@ func (a *AuthService) OpenVerificationURL(verificationURI string) {
 
 // Logout clears the stored auth token and emits a logout event.
 func (a *AuthService) Logout() error {
-	if err := a.db.DeleteAuth(); err != nil {
+	if err := a.db.DeleteAuth(a.ctx); err != nil {
 		return fmt.Errorf("failed to clear auth: %w", err)
 	}
 	wailsRuntime.EventsEmit(a.ctx, "auth:logout")
@@ -223,7 +228,7 @@ func (a *AuthService) Logout() error {
 // GetDecryptedToken retrieves and decrypts the stored GitHub token.
 // Used internally by other services (not exposed to frontend via Wails).
 func (a *AuthService) GetDecryptedToken() (string, error) {
-	record, err := a.db.GetAuth()
+	record, err := a.db.GetAuth(a.ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get auth record: %w", err)
 	}
@@ -240,14 +245,14 @@ func (a *AuthService) GetDecryptedToken() (string, error) {
 }
 
 // pollOnce makes a single token poll request. Returns (result, newInterval, isDone).
-func (a *AuthService) pollOnce(deviceCode string) (AuthResult, int, bool) {
+func (a *AuthService) pollOnce(ctx context.Context, deviceCode string) (AuthResult, int, bool) {
 	data := url.Values{
 		"client_id":   {ClientID},
 		"device_code": {deviceCode},
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
 	}
 
-	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		log.Printf("[Auth] Error creating poll request: %v", err)
 		return AuthResult{Error: err.Error()}, 0, true
@@ -329,7 +334,7 @@ func (a *AuthService) handleSuccessfulAuth(accessToken, scopes string) (AuthResu
 		Scopes:     scopes,
 	}
 
-	if err := a.db.UpsertAuth(record); err != nil {
+	if err := a.db.UpsertAuth(a.ctx, record); err != nil {
 		return AuthResult{Error: fmt.Sprintf("Failed to save auth record: %v", err)}, true
 	}
 
@@ -345,7 +350,7 @@ func (a *AuthService) handleSuccessfulAuth(accessToken, scopes string) (AuthResu
 
 // fetchGitHubUser calls GET /user with the given token.
 func (a *AuthService) fetchGitHubUser(token string) (*githubUser, error) {
-	req, err := http.NewRequest("GET", userURL, nil)
+	req, err := http.NewRequestWithContext(a.ctx, "GET", userURL, nil)
 	if err != nil {
 		return nil, err
 	}

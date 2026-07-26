@@ -32,11 +32,11 @@ jobs:
       frontend-directory: frontend
       go-version-file: go.mod
       go-cache-dependency-path: go.sum
-      node-version: "20"
-      pnpm-version: "9"
+      node-version-file: .nvmrc
+      pnpm-version: "11.17.0"
       pnpm-lockfile: frontend/pnpm-lock.yaml
       linux-system-packages: build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
-      release-tag-mode: platform
+      release-tag-mode: single
       release-enabled: true
       release-draft: true
       generate-release-notes: true
@@ -44,13 +44,15 @@ jobs:
       platforms-json: |
         [
           {
-            "id": "macos-arm64",
-            "name": "macOS arm64",
+            "target": "macos",
+            "name": "macOS",
             "runner_label": "macos-latest",
-            "build_command": "wails build -platform darwin/arm64 -m -s -clean",
-            "build_directory": "build/bin",
-            "artifact_path": "build/bin/0x-excali.app",
-            "artifact_platform": "macOS-arm64",
-            "archive_format": "dmg"
+            "package": "dmg"
+          },
+          {
+            "target": "linux",
+            "name": "Linux",
+            "runner_label": "ubuntu-22.04",
+            "package": "tar.gz"
           }
         ]

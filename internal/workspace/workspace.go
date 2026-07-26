@@ -45,12 +45,12 @@ func (s *Service) SetSyncEngine(e *sync.Engine) {
 // ListGitHubRepositories fetches the user's repositories from GitHub.
 // This proxies to the GitHub client so the frontend doesn't need raw API access.
 func (s *Service) ListGitHubRepositories() ([]github.Repository, error) {
-	return s.ghClient.ListRepositories()
+	return s.ghClient.ListRepositories(s.ctx)
 }
 
 // CreateGitHubRepository creates a new repository on GitHub.
 func (s *Service) CreateGitHubRepository(name, description string, private bool) (*github.Repository, error) {
-	return s.ghClient.CreateRepository(name, description, private)
+	return s.ghClient.CreateRepository(s.ctx, name, description, private)
 }
 
 // SelectWorkspace sets the given repository as the active workspace.
@@ -65,7 +65,7 @@ func (s *Service) SelectWorkspace(repo github.Repository) error {
 		IsPrivate:     repo.IsPrivate,
 	}
 
-	if err := s.db.UpsertWorkspace(ws); err != nil {
+	if err := s.db.UpsertWorkspace(s.ctx, ws); err != nil {
 		return fmt.Errorf("failed to save workspace: %w", err)
 	}
 
@@ -75,7 +75,7 @@ func (s *Service) SelectWorkspace(repo github.Repository) error {
 
 // GetActiveWorkspace returns the currently active workspace, or nil if none is set.
 func (s *Service) GetActiveWorkspace() *database.Workspace {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil {
 		log.Printf("workspace: error getting active workspace: %v", err)
 		return nil
@@ -86,7 +86,7 @@ func (s *Service) GetActiveWorkspace() *database.Workspace {
 // SyncFileTree fetches the remote repository tree and updates the local cache.
 // Preserves any locally dirty files (unsaved changes).
 func (s *Service) SyncFileTree() error {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
 	}
@@ -100,14 +100,14 @@ func (s *Service) SyncFileTree() error {
 	}
 
 	// Fetch remote tree
-	entries, err := s.ghClient.GetRepoTree(ws.Owner, ws.Name, ws.DefaultBranch)
+	entries, err := s.ghClient.GetRepoTree(s.ctx, ws.Owner, ws.Name, ws.DefaultBranch)
 	if err != nil {
 		wailsRuntime.EventsEmit(s.ctx, "sync:tree:error", err.Error())
 		return fmt.Errorf("failed to fetch repo tree: %w", err)
 	}
 
 	// Clear non-dirty cached nodes and rebuild
-	if err := s.db.ClearFileTree(ws.ID); err != nil {
+	if err := s.db.ClearFileTree(s.ctx, ws.ID); err != nil {
 		return fmt.Errorf("failed to clear file tree cache: %w", err)
 	}
 
@@ -130,7 +130,7 @@ func (s *Service) SyncFileTree() error {
 			IsDirty:     false,
 		}
 
-		if err := s.db.UpsertFileNode(node); err != nil {
+		if err := s.db.UpsertFileNode(s.ctx, node); err != nil {
 			log.Printf("workspace: failed to upsert node %s: %v", entry.Path, err)
 		}
 	}
@@ -143,12 +143,12 @@ func (s *Service) SyncFileTree() error {
 // GetFolderContents returns the children of a folder path.
 // Pass empty string for root contents.
 func (s *Service) GetFolderContents(parentPath string) []database.FileNode {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return nil
 	}
 
-	nodes, err := s.db.GetFolderContents(ws.ID, parentPath)
+	nodes, err := s.db.GetFolderContents(s.ctx, ws.ID, parentPath)
 	if err != nil {
 		log.Printf("workspace: error getting folder contents for '%s': %v", parentPath, err)
 		return nil
@@ -175,7 +175,7 @@ func validateItemName(name string) error {
 // CreateFolder creates a new folder by adding a .gitkeep placeholder.
 // GitHub doesn't support empty directories, so we create a hidden file.
 func (s *Service) CreateFolder(folderPath string) error {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
 	}
@@ -200,14 +200,14 @@ func (s *Service) CreateFolder(folderPath string) error {
 		IsDirty:     true,
 	}
 
-	if err := s.db.UpsertFileNode(node); err != nil {
+	if err := s.db.UpsertFileNode(s.ctx, node); err != nil {
 		return fmt.Errorf("failed to create folder: %w", err)
 	}
 
 	// Queue a .gitkeep file creation for sync
 	gitkeepPath := folderPath + "/.gitkeep"
-	if err := s.db.EnqueueSync(ws.ID, "create", gitkeepPath, ""); err != nil {
-		log.Printf("workspace: failed to queue .gitkeep sync: %v", err)
+	if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", gitkeepPath, ""); err != nil {
+		return fmt.Errorf("saved locally but failed to queue sync: %w", err)
 	}
 
 	wailsRuntime.EventsEmit(s.ctx, "workspace:updated")
@@ -216,7 +216,7 @@ func (s *Service) CreateFolder(folderPath string) error {
 
 // CreateDiagram creates a new blank .excalidraw diagram.
 func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, error) {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return nil, fmt.Errorf("no active workspace")
 	}
@@ -266,13 +266,13 @@ func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, er
 		IsDirty:     true,
 	}
 
-	if err := s.db.UpsertFileNode(node); err != nil {
+	if err := s.db.UpsertFileNode(s.ctx, node); err != nil {
 		return nil, fmt.Errorf("failed to create diagram: %w", err)
 	}
 
 	// Queue for remote sync
-	if err := s.db.EnqueueSync(ws.ID, "create", diagramPath, string(content)); err != nil {
-		log.Printf("workspace: failed to queue diagram sync: %v", err)
+	if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", diagramPath, string(content)); err != nil {
+		return nil, fmt.Errorf("saved locally but failed to queue sync: %w", err)
 	}
 
 	wailsRuntime.EventsEmit(s.ctx, "workspace:updated")
@@ -281,13 +281,13 @@ func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, er
 
 // SaveDiagram saves diagram content to the local DB and queues a sync.
 func (s *Service) SaveDiagram(path, content string) error {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
 	}
 
 	// Get existing node for its SHA
-	existing, err := s.db.GetFileByPath(ws.ID, path)
+	existing, err := s.db.GetFileByPath(s.ctx, ws.ID, path)
 	if err != nil {
 		return fmt.Errorf("failed to look up file: %w", err)
 	}
@@ -298,13 +298,13 @@ func (s *Service) SaveDiagram(path, content string) error {
 	}
 
 	// Update local DB
-	if err := s.db.UpdateFileContent(ws.ID, path, content, sha); err != nil {
+	if err := s.db.UpdateFileContent(s.ctx, ws.ID, path, content, sha); err != nil {
 		return fmt.Errorf("failed to save diagram locally: %w", err)
 	}
 
 	// Queue for remote sync
-	if err := s.db.EnqueueSync(ws.ID, "update", path, content); err != nil {
-		log.Printf("workspace: failed to queue save sync: %v", err)
+	if err := s.db.EnqueueSync(s.ctx, ws.ID, "update", path, content); err != nil {
+		return fmt.Errorf("saved locally but failed to queue sync: %w", err)
 	}
 
 	return nil
@@ -313,13 +313,13 @@ func (s *Service) SaveDiagram(path, content string) error {
 // GetDiagram retrieves the content of a diagram.
 // First checks local cache, then fetches from GitHub if needed.
 func (s *Service) GetDiagram(path string) (string, error) {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return "", fmt.Errorf("no active workspace")
 	}
 
 	// Check local cache first
-	node, err := s.db.GetFileByPath(ws.ID, path)
+	node, err := s.db.GetFileByPath(s.ctx, ws.ID, path)
 	if err != nil {
 		return "", fmt.Errorf("failed to look up file: %w", err)
 	}
@@ -329,14 +329,14 @@ func (s *Service) GetDiagram(path string) (string, error) {
 	}
 
 	// Fetch from GitHub
-	content, sha, err := s.ghClient.GetFileContent(ws.Owner, ws.Name, path, ws.DefaultBranch)
+	content, sha, err := s.ghClient.GetFileContent(s.ctx, ws.Owner, ws.Name, path, ws.DefaultBranch)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch from GitHub: %w", err)
 	}
 
 	// Cache locally
 	if node != nil {
-		_ = s.db.UpdateFileContent(ws.ID, path, content, sha)
+		_ = s.db.UpdateFileContent(s.ctx, ws.ID, path, content, sha)
 	}
 
 	return content, nil
@@ -344,7 +344,7 @@ func (s *Service) GetDiagram(path string) (string, error) {
 
 // DeleteItem removes a file or folder from local cache and queues deletion.
 func (s *Service) DeleteItem(path string) error {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
 	}
@@ -352,14 +352,14 @@ func (s *Service) DeleteItem(path string) error {
 	// Collect the actual files to remove from GitHub BEFORE deleting locally.
 	// GitHub has no folder objects, so deleting a folder means deleting every
 	// file under it; deleting a file just removes that one file.
-	node, err := s.db.GetFileByPath(ws.ID, path)
+	node, err := s.db.GetFileByPath(s.ctx, ws.ID, path)
 	if err != nil {
 		return fmt.Errorf("failed to look up item: %w", err)
 	}
 
 	var files []database.FileNode
 	if node != nil && node.Type == "folder" {
-		if under, ferr := s.db.GetFilesUnder(ws.ID, path); ferr == nil {
+		if under, ferr := s.db.GetFilesUnder(s.ctx, ws.ID, path); ferr == nil {
 			files = under
 		}
 	} else if node != nil {
@@ -367,7 +367,7 @@ func (s *Service) DeleteItem(path string) error {
 	}
 
 	// Delete from local DB (removes the folder and all descendants)
-	if err := s.db.DeleteFileNode(ws.ID, path); err != nil {
+	if err := s.db.DeleteFileNode(s.ctx, ws.ID, path); err != nil {
 		return fmt.Errorf("failed to delete locally: %w", err)
 	}
 
@@ -377,8 +377,8 @@ func (s *Service) DeleteItem(path string) error {
 			continue // never pushed to GitHub — nothing to delete remotely
 		}
 		payload, _ := json.Marshal(map[string]string{"sha": f.SHA})
-		if err := s.db.EnqueueSync(ws.ID, "delete", f.Path, string(payload)); err != nil {
-			log.Printf("workspace: failed to queue delete sync for %s: %v", f.Path, err)
+		if err := s.db.EnqueueSync(s.ctx, ws.ID, "delete", f.Path, string(payload)); err != nil {
+			return fmt.Errorf("deleted locally but failed to queue sync for %s: %w", f.Path, err)
 		}
 	}
 
@@ -388,12 +388,12 @@ func (s *Service) DeleteItem(path string) error {
 
 // GetDirtyFileCount returns the number of files with unsaved changes.
 func (s *Service) GetDirtyFileCount() int {
-	ws, err := s.db.GetActiveWorkspace()
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return 0
 	}
 
-	dirty, err := s.db.GetDirtyFiles(ws.ID)
+	dirty, err := s.db.GetDirtyFiles(s.ctx, ws.ID)
 	if err != nil {
 		return 0
 	}

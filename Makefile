@@ -1,7 +1,7 @@
-.PHONY: all build dev clean tidy clean-all
+.PHONY: all setup build build-prod dev clean
 
 # Default target
-all: clean-all build
+all: clean build
 
 # Setup local development environment (Git hooks, etc.)
 setup:
@@ -9,41 +9,28 @@ setup:
 	git config core.hooksPath .githooks
 	@echo "Setup complete."
 
-# Build the Wails application for production
-build:
-	@echo "Building 0x-excali..."
-	wails build
-
-# Optimized production build for macOS arm64 (used by GitHub Actions)
-production-deploy:
-	@echo "Building optimized production version for macOS arm64..."
-	wails build -platform darwin/arm64 -m -s -clean
-
-# Run the application in development mode
+# Run the application in development mode with proper logs
 dev:
 	@echo "Starting development server..."
-	wails dev
+	wails dev -loglevel debug
 
-# Tidy up unused dependencies (Go and Node)
-tidy:
-	@echo "Tidying Go dependencies..."
-	go mod tidy
-	@echo "Pruning frontend dependencies..."
-	cd frontend && pnpm prune
+# Build the Wails application for local testing with logs enabled
+build:
+	@echo "Building 0x-excali (Local with logs)..."
+	wails build -debug
 
-# Clean build artifacts (keeps node_modules)
+# Secure production grade build with full optimization and preflight checks
+build-prod:
+	@echo "Building 0x-excali (Secure Production optimized)..."
+	GOTOOLCHAIN=local ./scripts/build-production.sh --target macos --arch universal --package dmg --secure
+
+# Deep clean (removes build directories, node_modules, and Go module cache)
 clean:
 	@echo "Cleaning build directories..."
 	rm -rf build/bin
 	rm -rf frontend/dist
 	rm -rf frontend/.vite
-	go clean
-	@echo "Clean complete."
-
-# Deep clean (removes node_modules and Go module cache)
-clean-all: clean
-	@echo "Removing frontend dependencies (node_modules)..."
+	@echo "Cleaning dependency caches..."
 	rm -rf frontend/node_modules
-	@echo "Cleaning Go module cache..."
 	go clean -modcache
 	@echo "Deep clean complete."

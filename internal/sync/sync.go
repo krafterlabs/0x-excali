@@ -3,7 +3,9 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+
 	"log"
 	"strings"
 	"time"
@@ -60,12 +62,12 @@ func (e *Engine) PushPending() {
 
 // processPendingItems fetches and processes all pending sync queue items.
 func (e *Engine) processPendingItems() {
-	ws, err := e.db.GetActiveWorkspace()
+	ws, err := e.db.GetActiveWorkspace(e.ctx)
 	if err != nil || ws == nil {
 		return // No workspace — nothing to sync
 	}
 
-	items, err := e.db.GetPendingSyncItems(batchSize)
+	items, err := e.db.GetPendingSyncItems(e.ctx, batchSize)
 	if err != nil {
 		log.Printf("sync: failed to fetch pending items: %v", err)
 		return
@@ -85,16 +87,16 @@ func (e *Engine) processPendingItems() {
 
 	for _, item := range items {
 		// Mark as in progress
-		_ = e.db.UpdateSyncItemStatus(item.ID, "in_progress", "")
+		_ = e.db.UpdateSyncItemStatus(e.ctx, item.ID, "in_progress", "")
 
 		err := e.processItem(ws, &item, commitMsg)
 		if err != nil {
 			log.Printf("sync: failed to process item %d (%s %s): %v",
 				item.ID, item.Operation, item.FilePath, err)
-			_ = e.db.UpdateSyncItemStatus(item.ID, "failed", err.Error())
+			_ = e.db.UpdateSyncItemStatus(e.ctx, item.ID, "failed", err.Error())
 			failCount++
 		} else {
-			_ = e.db.UpdateSyncItemStatus(item.ID, "completed", "")
+			_ = e.db.UpdateSyncItemStatus(e.ctx, item.ID, "completed", "")
 			successCount++
 		}
 	}
@@ -128,21 +130,36 @@ func (e *Engine) handleCreate(ws *database.Workspace, item *database.SyncQueueIt
 	content := item.Payload
 
 	newSHA, err := e.ghClient.CreateOrUpdateFile(
-		ws.Owner, ws.Name, item.FilePath, content, commitMsg, "",
+		e.ctx, ws.Owner, ws.Name, item.FilePath, content, commitMsg, "",
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create file on GitHub: %w", err)
+		var apiErr *github.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == 422 {
+			// File exists remotely. Fetch its SHA and retry.
+			_, existingSHA, getErr := e.ghClient.GetFileContent(e.ctx, ws.Owner, ws.Name, item.FilePath, "")
+			if getErr != nil {
+				return fmt.Errorf("failed to get existing file SHA: %w (original err: %v)", getErr, err)
+			}
+			newSHA, err = e.ghClient.CreateOrUpdateFile(
+				e.ctx, ws.Owner, ws.Name, item.FilePath, content, commitMsg, existingSHA,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update existing file on GitHub: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to create file on GitHub: %w", err)
+		}
 	}
 
 	// Update local cache with the new SHA
-	_ = e.db.MarkFileSynced(ws.ID, item.FilePath, newSHA)
+	_ = e.db.MarkFileSynced(e.ctx, ws.ID, item.FilePath, newSHA)
 	return nil
 }
 
 // handleUpdate pushes file changes to GitHub.
 func (e *Engine) handleUpdate(ws *database.Workspace, item *database.SyncQueueItem, commitMsg string) error {
 	// Get the current SHA from local cache
-	node, err := e.db.GetFileByPath(ws.ID, item.FilePath)
+	node, err := e.db.GetFileByPath(e.ctx, ws.ID, item.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to look up %s: %w", item.FilePath, err)
 	}
@@ -156,7 +173,7 @@ func (e *Engine) handleUpdate(ws *database.Workspace, item *database.SyncQueueIt
 
 	// If we don't have a SHA, try to get it from GitHub (file may have been created externally)
 	if sha == "" {
-		_, remoteSHA, fetchErr := e.ghClient.GetFileContent(ws.Owner, ws.Name, item.FilePath, ws.DefaultBranch)
+		_, remoteSHA, fetchErr := e.ghClient.GetFileContent(e.ctx, ws.Owner, ws.Name, item.FilePath, ws.DefaultBranch)
 		if fetchErr == nil {
 			sha = remoteSHA
 		}
@@ -166,14 +183,14 @@ func (e *Engine) handleUpdate(ws *database.Workspace, item *database.SyncQueueIt
 	content := item.Payload
 
 	newSHA, err := e.ghClient.CreateOrUpdateFile(
-		ws.Owner, ws.Name, item.FilePath, content, commitMsg, sha,
+		e.ctx, ws.Owner, ws.Name, item.FilePath, content, commitMsg, sha,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update file on GitHub: %w", err)
 	}
 
 	// Update local cache with the new SHA
-	_ = e.db.MarkFileSynced(ws.ID, item.FilePath, newSHA)
+	_ = e.db.MarkFileSynced(e.ctx, ws.ID, item.FilePath, newSHA)
 	return nil
 }
 
@@ -186,7 +203,7 @@ func (e *Engine) handleDelete(ws *database.Workspace, item *database.SyncQueueIt
 
 	if err := json.Unmarshal([]byte(item.Payload), &deleteInfo); err != nil || deleteInfo.SHA == "" {
 		// Try to fetch the SHA from GitHub
-		_, remoteSHA, fetchErr := e.ghClient.GetFileContent(ws.Owner, ws.Name, item.FilePath, ws.DefaultBranch)
+		_, remoteSHA, fetchErr := e.ghClient.GetFileContent(e.ctx, ws.Owner, ws.Name, item.FilePath, ws.DefaultBranch)
 		if fetchErr != nil {
 			// File might already be deleted — treat as success
 			log.Printf("sync: file %s may already be deleted from GitHub", item.FilePath)
@@ -195,9 +212,12 @@ func (e *Engine) handleDelete(ws *database.Workspace, item *database.SyncQueueIt
 		deleteInfo.SHA = remoteSHA
 	}
 
-	if err := e.ghClient.DeleteFile(ws.Owner, ws.Name, item.FilePath, deleteInfo.SHA, commitMsg); err != nil {
-		// Folders aren't deletable via the Contents API (they aren't objects).
-		// Any stale folder-delete queue item lands here — treat it as done.
+	if err := e.ghClient.DeleteFile(e.ctx, ws.Owner, ws.Name, item.FilePath, deleteInfo.SHA, commitMsg); err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			log.Printf("sync: file %s not found on GitHub during delete (already deleted), skipping", item.FilePath)
+			return nil
+		}
+
 		if strings.Contains(err.Error(), "is not a file") {
 			log.Printf("sync: %s is not a file (folder), skipping remote delete", item.FilePath)
 			return nil

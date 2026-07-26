@@ -65,10 +65,7 @@ make setup
 # 3. Install frontend dependencies
 cd frontend && pnpm install
 
-# 4. Configure GitHub OAuth
-#    → Paste your OAuth App Client ID into internal/github/auth.go
-
-# 5. Run dev server
+# 4. Run dev server
 make dev
 ```
 

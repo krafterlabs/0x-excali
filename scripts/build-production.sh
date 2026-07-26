@@ -136,11 +136,6 @@ secure_preflight() {
     log "Verifying go modules..."
     go mod verify
     
-    log "Running tests..."
-    mkdir -p "$FRONTEND_DIR/dist"
-    touch "$FRONTEND_DIR/dist/.gitkeep"
-    go test ./...
-    
     # Snapshot checksums of lockfiles
     PREFLIGHT_GOSUM=$(shasum -a 256 go.sum | awk '{print $1}')
     PREFLIGHT_PNPMLOCK=$(shasum -a 256 "$FRONTEND_DIR/pnpm-lock.yaml" | awk '{print $1}')
@@ -195,10 +190,26 @@ install_frontend_dependencies() {
   fi
 }
 
+generate_wails_bindings() {
+  log "Generating Wails TS bindings..."
+  # Workaround: wails generate module invokes the Go compiler, which fails if the 
+  # go:embed target (frontend/dist) doesn't exist. We must bootstrap it.
+  mkdir -p "$FRONTEND_DIR/dist"
+  touch "$FRONTEND_DIR/dist/.gitkeep"
+  wails generate module
+}
+
 build_frontend() {
   if [[ "$SKIP_FRONTEND_BUILD" == "false" ]]; then
     log "Building frontend..."
     (cd "$FRONTEND_DIR" && pnpm run build)
+  fi
+}
+
+run_tests() {
+  if [[ "$SECURE" == "true" ]]; then
+    log "Running go tests..."
+    go test ./...
   fi
 }
 
@@ -344,8 +355,10 @@ main() {
   secure_preflight
   read_version
   print_tool_versions
+  generate_wails_bindings
   install_frontend_dependencies
   build_frontend
+  run_tests
   build_wails
   secure_postflight
   generate_artifacts

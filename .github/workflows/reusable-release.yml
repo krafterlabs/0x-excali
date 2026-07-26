@@ -59,6 +59,11 @@ on:
         default: build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
         type: string
 
+      wails-linux-tags:
+        required: false
+        default: ""
+        type: string
+
       release-tag-mode:
         required: false
         default: platform
@@ -156,6 +161,8 @@ jobs:
       - name: Build production ${{ matrix.platform.name }}
         id: build_script
         shell: bash
+        env:
+          WAILS_LINUX_TAGS: ${{ inputs.wails-linux-tags }}
         run: ./scripts/build-production.sh --target "${{ matrix.platform.target }}" --package "${{ matrix.platform.package }}" --secure --skip-frontend-install
 
       - name: Upload artifact

@@ -159,7 +159,7 @@ jobs:
         run: ./scripts/build-production.sh --target "${{ matrix.platform.target }}" --package "${{ matrix.platform.package }}" --secure --skip-frontend-install
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 0x-excali-${{ matrix.platform.target }}
           path: |
@@ -173,7 +173,7 @@ jobs:
   publish:
     name: Publish Release
     needs: [build]
-    if: inputs.release-enabled
+    if: always() && inputs.release-enabled && needs.build.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -196,7 +196,7 @@ jobs:
           echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true

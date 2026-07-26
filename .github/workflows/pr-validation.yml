@@ -1,0 +1,60 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-release:
+    name: Validate Release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Branch and Version
+        run: |
+          set -e
+
+          VERSION=$(cat .version)
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::.version file is empty or missing"
+            exit 1
+          fi
+
+          EXPECTED_BRANCH="release-${VERSION}"
+          HEAD_REF="${{ github.head_ref }}"
+
+          if [[ "$HEAD_REF" != "$EXPECTED_BRANCH" ]]; then
+            echo "::error::Branch name must be exactly $EXPECTED_BRANCH to merge to master. Current branch is $HEAD_REF."
+            exit 1
+          fi
+
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+
+          if [[ "$LATEST_TAG" == "$VERSION" ]]; then
+            echo "::error::Proposed version $VERSION is equal to the latest tag $LATEST_TAG."
+            exit 1
+          fi
+
+          HIGHEST=$(printf "%s\n%s" "$LATEST_TAG" "$VERSION" | sort -V | tail -n 1)
+          if [[ "$HIGHEST" != "$VERSION" ]]; then
+            echo "::error::Proposed version $VERSION is older than the latest tag $LATEST_TAG."
+            exit 1
+          fi
+
+          echo "✅ PR validation passed. Branch name and version bump are correct."
+
+      - name: Auto-Approve PR
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review "${{ github.event.pull_request.html_url }}" --approve -b "✅ All validation checks passed! I'm approving this release."

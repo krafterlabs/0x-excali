@@ -2,16 +2,47 @@ name: PR Validation
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
     branches:
       - master
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
 
 permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: validate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
-  validate-release:
-    name: Validate Release PR
+  validate-threads:
+    name: Check Review Threads
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout validation scripts
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: .github/scripts/validate-pr.js
+          sparse-checkout-cone-mode: false
+
+      - name: Validate pull request
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const validate = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/validate-pr.js`);
+            await validate({ github, context, core });
+
+  validate-version:
+    name: Check Branch and Version
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -52,8 +83,13 @@ jobs:
 
           echo "✅ PR validation passed. Branch name and version bump are correct."
 
+  auto-approve:
+    name: Bot Auto-Approve
+    needs: [validate-threads, validate-version]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
       - name: Auto-Approve PR
-        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

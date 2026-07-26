@@ -137,6 +137,8 @@ secure_preflight() {
     go mod verify
     
     log "Running tests..."
+    mkdir -p "$FRONTEND_DIR/dist"
+    touch "$FRONTEND_DIR/dist/.gitkeep"
     go test ./...
     
     # Snapshot checksums of lockfiles

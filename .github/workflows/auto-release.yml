@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: release-production
@@ -37,6 +38,7 @@ jobs:
       pnpm-version: "11.17.0"
       pnpm-lockfile: frontend/pnpm-lock.yaml
       linux-system-packages: build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+      wails-linux-tags: webkit2_41
       release-tag-mode: single
       release-enabled: true
       release-draft: true

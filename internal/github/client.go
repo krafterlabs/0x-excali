@@ -2,6 +2,7 @@ package github
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -49,8 +50,8 @@ type FileContentResponse struct {
 	Path    string `json:"path"`
 	SHA     string `json:"sha"`
 	Size    int    `json:"size"`
-	Content string `json:"content"`  // base64 encoded
-	Type    string `json:"type"`     // "file" or "dir"
+	Content string `json:"content"` // base64 encoded
+	Type    string `json:"type"`    // "file" or "dir"
 }
 
 // CreateRepoRequest is the payload for creating a new repository.
@@ -59,6 +60,16 @@ type CreateRepoRequest struct {
 	Description string `json:"description"`
 	Private     bool   `json:"private"`
 	AutoInit    bool   `json:"auto_init"`
+}
+
+// APIError represents an error returned by the GitHub API.
+type APIError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("GitHub API error %d: %s", e.StatusCode, e.Message)
 }
 
 // --- Internal GitHub API response types ---
@@ -123,8 +134,8 @@ func NewClient(authService *AuthService) *Client {
 
 // ListRepositories fetches all repositories the authenticated user has access to.
 // Returns up to 100 repos, sorted by most recently updated.
-func (c *Client) ListRepositories() ([]Repository, error) {
-	body, err := c.doRequest("GET", "/user/repos?sort=updated&per_page=100&type=all", nil)
+func (c *Client) ListRepositories(ctx context.Context) ([]Repository, error) {
+	body, err := c.doRequest(ctx, "GET", "/user/repos?sort=updated&per_page=100&type=all", nil)
 	if err != nil {
 		return nil, fmt.Errorf("list repos: %w", err)
 	}
@@ -151,7 +162,7 @@ func (c *Client) ListRepositories() ([]Repository, error) {
 }
 
 // CreateRepository creates a new GitHub repository for the authenticated user.
-func (c *Client) CreateRepository(name, description string, isPrivate bool) (*Repository, error) {
+func (c *Client) CreateRepository(ctx context.Context, name, description string, isPrivate bool) (*Repository, error) {
 	payload := CreateRepoRequest{
 		Name:        name,
 		Description: description,
@@ -164,7 +175,7 @@ func (c *Client) CreateRepository(name, description string, isPrivate bool) (*Re
 		return nil, fmt.Errorf("create repo: marshal failed: %w", err)
 	}
 
-	body, err := c.doRequest("POST", "/user/repos", jsonPayload)
+	body, err := c.doRequest(ctx, "POST", "/user/repos", jsonPayload)
 	if err != nil {
 		return nil, fmt.Errorf("create repo: %w", err)
 	}
@@ -188,9 +199,9 @@ func (c *Client) CreateRepository(name, description string, isPrivate bool) (*Re
 }
 
 // GetRepoTree fetches the full recursive tree of a repository at a given branch/ref.
-func (c *Client) GetRepoTree(owner, repo, branch string) ([]FileEntry, error) {
+func (c *Client) GetRepoTree(ctx context.Context, owner, repo, branch string) ([]FileEntry, error) {
 	path := fmt.Sprintf("/repos/%s/%s/git/trees/%s?recursive=1", owner, repo, branch)
-	body, err := c.doRequest("GET", path, nil)
+	body, err := c.doRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get tree: %w", err)
 	}
@@ -229,13 +240,13 @@ func (c *Client) GetRepoTree(owner, repo, branch string) ([]FileEntry, error) {
 
 // GetFileContent fetches the content of a single file from the repository.
 // Returns the decoded (non-base64) content as a string.
-func (c *Client) GetFileContent(owner, repo, path, ref string) (string, string, error) {
+func (c *Client) GetFileContent(ctx context.Context, owner, repo, path, ref string) (string, string, error) {
 	apiPath := fmt.Sprintf("/repos/%s/%s/contents/%s", owner, repo, path)
 	if ref != "" {
 		apiPath += "?ref=" + ref
 	}
 
-	body, err := c.doRequest("GET", apiPath, nil)
+	body, err := c.doRequest(ctx, "GET", apiPath, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("get file: %w", err)
 	}
@@ -257,7 +268,7 @@ func (c *Client) GetFileContent(owner, repo, path, ref string) (string, string, 
 // CreateOrUpdateFile creates or updates a file in the repository.
 // If sha is empty, creates a new file; otherwise updates the existing one.
 // Returns the new SHA of the file.
-func (c *Client) CreateOrUpdateFile(owner, repo, path, content, message, sha string) (string, error) {
+func (c *Client) CreateOrUpdateFile(ctx context.Context, owner, repo, path, content, message, sha string) (string, error) {
 	apiPath := fmt.Sprintf("/repos/%s/%s/contents/%s", owner, repo, path)
 
 	payload := ghUpdateFileRequest{
@@ -273,7 +284,7 @@ func (c *Client) CreateOrUpdateFile(owner, repo, path, content, message, sha str
 		return "", fmt.Errorf("update file: marshal failed: %w", err)
 	}
 
-	body, err := c.doRequest("PUT", apiPath, jsonPayload)
+	body, err := c.doRequest(ctx, "PUT", apiPath, jsonPayload)
 	if err != nil {
 		return "", fmt.Errorf("update file: %w", err)
 	}
@@ -287,7 +298,7 @@ func (c *Client) CreateOrUpdateFile(owner, repo, path, content, message, sha str
 }
 
 // DeleteFile removes a file from the repository.
-func (c *Client) DeleteFile(owner, repo, path, sha, message string) error {
+func (c *Client) DeleteFile(ctx context.Context, owner, repo, path, sha, message string) error {
 	apiPath := fmt.Sprintf("/repos/%s/%s/contents/%s", owner, repo, path)
 
 	payload := ghDeleteFileRequest{
@@ -300,7 +311,7 @@ func (c *Client) DeleteFile(owner, repo, path, sha, message string) error {
 		return fmt.Errorf("delete file: marshal failed: %w", err)
 	}
 
-	_, err = c.doRequest("DELETE", apiPath, jsonPayload)
+	_, err = c.doRequest(ctx, "DELETE", apiPath, jsonPayload)
 	if err != nil {
 		return fmt.Errorf("delete file: %w", err)
 	}
@@ -310,7 +321,7 @@ func (c *Client) DeleteFile(owner, repo, path, sha, message string) error {
 
 // doRequest performs an authenticated API request with the given HTTP method
 // and returns the response body.
-func (c *Client) doRequest(method, path string, payload []byte) ([]byte, error) {
+func (c *Client) doRequest(ctx context.Context, method, path string, payload []byte) ([]byte, error) {
 	token, err := c.authService.GetDecryptedToken()
 	if err != nil {
 		return nil, fmt.Errorf("auth required: %w", err)
@@ -327,6 +338,7 @@ func (c *Client) doRequest(method, path string, payload []byte) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+	req = req.WithContext(ctx)
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -347,7 +359,7 @@ func (c *Client) doRequest(method, path string, payload []byte) ([]byte, error) 
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("GitHub API error %d: %s", resp.StatusCode, string(body))
+		return nil, &APIError{StatusCode: resp.StatusCode, Message: string(body)}
 	}
 
 	return body, nil

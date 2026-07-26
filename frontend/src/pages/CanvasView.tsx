@@ -1,19 +1,21 @@
-import { type ComponentProps, useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 
-import { Excalidraw } from "@excalidraw/excalidraw";
-import "@excalidraw/excalidraw/index.css";
-import { Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
+import { Excalidraw } from '@excalidraw/excalidraw';
+import '@excalidraw/excalidraw/index.css';
+import { Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
 
-import { EditorHeader } from "@/components/layout/EditorHeader";
-import { Button } from "@/components/ui/button";
+import { EditorHeader } from '@/components/layout/EditorHeader';
+import { Button } from '@/components/ui/button';
+
+import { SaveDiagram } from '../../wailsjs/go/workspace/Service';
 
 type ExcalidrawComponentProps = ComponentProps<typeof Excalidraw>;
-type OnChangeFn = NonNullable<ExcalidrawComponentProps["onChange"]>;
+type OnChangeFn = NonNullable<ExcalidrawComponentProps['onChange']>;
 type ExcalidrawElement = Parameters<OnChangeFn>[0][number];
 type AppState = Parameters<OnChangeFn>[1];
 type BinaryFiles = Parameters<OnChangeFn>[2];
-type ExcalidrawInitialDataState = NonNullable<ExcalidrawComponentProps["initialData"]>;
+type ExcalidrawInitialDataState = NonNullable<ExcalidrawComponentProps['initialData']>;
 
 interface CanvasViewProps {
   id: string;
@@ -26,11 +28,11 @@ export function CanvasView({ id }: CanvasViewProps) {
   const [initialData, setInitialData] = useState<ExcalidrawInitialDataState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [excalidrawTheme, setExcalidrawTheme] = useState<"dark" | "light">("dark");
+  const [error, setError] = useState('');
+  const [excalidrawTheme, setExcalidrawTheme] = useState<'dark' | 'light'>('dark');
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestContentRef = useRef<string>("");
+  const latestContentRef = useRef<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -38,14 +40,14 @@ export function CanvasView({ id }: CanvasViewProps) {
     async function loadDiagram() {
       try {
         try {
-          const { GetSettings } = await import("../../wailsjs/go/settings/Service");
+          const { GetSettings } = await import('../../wailsjs/go/settings/Service');
           const config = await GetSettings();
-          setExcalidrawTheme((config.excalidrawTheme as "dark" | "light") || "dark");
+          setExcalidrawTheme((config.excalidrawTheme as 'dark' | 'light') || 'dark');
         } catch {
           void 0;
         }
 
-        const { GetDiagram } = await import("../../wailsjs/go/workspace/Service");
+        const { GetDiagram } = await import('../../wailsjs/go/workspace/Service');
         const content = await GetDiagram(filePath);
 
         if (cancelled) return;
@@ -79,7 +81,7 @@ export function CanvasView({ id }: CanvasViewProps) {
         setLoading(false);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load diagram");
+          setError(err instanceof Error ? err.message : 'Failed to load diagram');
           setLoading(false);
         }
       }
@@ -97,9 +99,7 @@ export function CanvasView({ id }: CanvasViewProps) {
         clearTimeout(saveTimeoutRef.current);
         if (latestContentRef.current) {
           const contentToSave = latestContentRef.current;
-          import("../../wailsjs/go/workspace/Service")
-            .then(({ SaveDiagram }) => SaveDiagram(filePath, contentToSave))
-            .catch(console.error);
+          SaveDiagram(filePath, contentToSave).catch(console.error);
         }
       }
     };
@@ -109,10 +109,9 @@ export function CanvasView({ id }: CanvasViewProps) {
     async (content: string) => {
       setSaving(true);
       try {
-        const { SaveDiagram } = await import("../../wailsjs/go/workspace/Service");
         await SaveDiagram(filePath, content);
       } catch (err) {
-        console.error("Save error:", err);
+        console.error('Save error:', err);
       }
       setSaving(false);
     },
@@ -123,9 +122,9 @@ export function CanvasView({ id }: CanvasViewProps) {
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       const content = JSON.stringify(
         {
-          type: "excalidraw",
+          type: 'excalidraw',
           version: 2,
-          source: "0x-excali",
+          source: '0x-excali',
           elements: elements,
           appState: {
             gridSize: appState.gridSize,
@@ -164,7 +163,7 @@ export function CanvasView({ id }: CanvasViewProps) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background">
         <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" onClick={() => setLocation("/workspace")}>
+        <Button variant="outline" onClick={() => setLocation('/workspace')}>
           Back to Workspace
         </Button>
       </div>

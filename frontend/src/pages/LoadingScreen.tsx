@@ -1,43 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
-import { useLocation } from "wouter";
+import { useLocation } from 'wouter';
 
 export function LoadingScreen() {
   const [, setLocation] = useLocation();
-  const [status, setStatus] = useState("Initializing...");
+  const [status, setStatus] = useState('Initializing...');
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkAuth() {
       try {
-        setStatus("Connecting to backend...");
+        setStatus('Connecting to backend...');
 
-        const { GetAuthStatus } = await import("../../wailsjs/go/github/AuthService");
+        const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
         const result = await GetAuthStatus();
 
         if (cancelled) return;
 
         if (result.authenticated) {
-          setStatus("Welcome back, " + result.username);
+          setStatus('Welcome back, ' + result.username);
 
-          const { GetActiveWorkspace } = await import("../../wailsjs/go/workspace/Service");
+          const { GetActiveWorkspace } = await import('../../wailsjs/go/workspace/Service');
           const workspace = await GetActiveWorkspace();
 
           if (cancelled) return;
 
           if (workspace) {
-            setTimeout(() => !cancelled && setLocation("/workspace"), 800);
+            setTimeout(() => !cancelled && setLocation('/workspace'), 800);
           } else {
-            setTimeout(() => !cancelled && setLocation("/setup-workspace"), 800);
+            setTimeout(() => !cancelled && setLocation('/setup-workspace'), 800);
           }
         } else {
-          setStatus("Authentication required");
-          setTimeout(() => !cancelled && setLocation("/auth"), 600);
+          setStatus('Authentication required');
+          setTimeout(() => !cancelled && setLocation('/auth'), 600);
         }
       } catch {
         if (!cancelled) {
-          setStatus("Starting up...");
+          setStatus('Starting up...');
 
           setTimeout(() => checkAuth(), 1000);
         }

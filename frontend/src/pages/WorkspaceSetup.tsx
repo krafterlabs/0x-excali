@@ -1,21 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 
-import { ArrowRight, GitBranch, Globe, Layers, Loader2, Lock, Plus, Search } from "lucide-react";
-import { useLocation } from "wouter";
+import { ArrowRight, GitBranch, Globe, Layers, Loader2, Lock, Plus, Search } from 'lucide-react';
+import { useLocation } from 'wouter';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Repository {
   id: number;
@@ -32,21 +31,21 @@ export function WorkspaceSetup() {
   const [, setLocation] = useLocation();
   const [repos, setRepos] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [selecting, setSelecting] = useState<number | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newRepoName, setNewRepoName] = useState("");
-  const [newRepoDesc, setNewRepoDesc] = useState("");
+  const [newRepoName, setNewRepoName] = useState('');
+  const [newRepoDesc, setNewRepoDesc] = useState('');
   const [newRepoPrivate, setNewRepoPrivate] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchRepos() {
       try {
-        const { ListGitHubRepositories } = await import("../../wailsjs/go/workspace/Service");
+        const { ListGitHubRepositories } = await import('../../wailsjs/go/workspace/Service');
         const result = await ListGitHubRepositories();
         if (!cancelled) {
           setRepos(result || []);
@@ -54,7 +53,7 @@ export function WorkspaceSetup() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load repositories");
+          setError(err instanceof Error ? err.message : 'Failed to load repositories');
           setLoading(false);
         }
       }
@@ -80,14 +79,14 @@ export function WorkspaceSetup() {
   async function handleSelectRepo(repo: Repository) {
     setSelecting(repo.id);
     try {
-      const { SelectWorkspace, SyncFileTree } = await import("../../wailsjs/go/workspace/Service");
+      const { SelectWorkspace, SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
       await SelectWorkspace(repo);
 
       SyncFileTree().catch(console.error);
 
-      setLocation("/workspace");
+      setLocation('/workspace');
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to select workspace");
+      setError(err instanceof Error ? err.message : 'Failed to select workspace');
       setSelecting(null);
     }
   }
@@ -97,7 +96,7 @@ export function WorkspaceSetup() {
     setCreating(true);
 
     try {
-      const { CreateGitHubRepository } = await import("../../wailsjs/go/workspace/Service");
+      const { CreateGitHubRepository } = await import('../../wailsjs/go/workspace/Service');
       const newRepo = await CreateGitHubRepository(
         newRepoName.trim(),
         newRepoDesc.trim(),
@@ -108,7 +107,7 @@ export function WorkspaceSetup() {
 
       await handleSelectRepo(newRepo);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create repository");
+      setError(err instanceof Error ? err.message : 'Failed to create repository');
       setCreating(false);
     }
   }
@@ -161,7 +160,7 @@ export function WorkspaceSetup() {
             </div>
           )}
 
-          <ScrollArea className="flex-1 -mx-1 px-1">
+          <div className="flex-1 -mx-1 px-1 overflow-y-auto">
             <div className="space-y-2 pb-4">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
@@ -181,7 +180,7 @@ export function WorkspaceSetup() {
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <Search className="h-8 w-8 mb-3 opacity-40" />
                   <p className="text-sm">
-                    {searchQuery ? "No repositories match your search" : "No repositories found"}
+                    {searchQuery ? 'No repositories match your search' : 'No repositories found'}
                   </p>
                 </div>
               ) : (
@@ -227,7 +226,7 @@ export function WorkspaceSetup() {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
@@ -259,7 +258,7 @@ export function WorkspaceSetup() {
             </div>
             <div className="flex items-center gap-3">
               <Button
-                variant={newRepoPrivate ? "default" : "outline"}
+                variant={newRepoPrivate ? 'default' : 'outline'}
                 size="sm"
                 className="gap-2"
                 onClick={() => setNewRepoPrivate(true)}
@@ -268,7 +267,7 @@ export function WorkspaceSetup() {
                 Private
               </Button>
               <Button
-                variant={!newRepoPrivate ? "default" : "outline"}
+                variant={!newRepoPrivate ? 'default' : 'outline'}
                 size="sm"
                 className="gap-2"
                 onClick={() => setNewRepoPrivate(false)}

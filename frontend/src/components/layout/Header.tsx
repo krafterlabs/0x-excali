@@ -1,6 +1,7 @@
-import { Cloud, CloudOff, RefreshCw } from "lucide-react";
-import { Link } from "wouter";
+import { Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Link } from 'wouter';
 
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,17 +9,17 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-import { database } from "../../../wailsjs/go/models";
+import { database } from '../../../wailsjs/go/models';
 
 export interface HeaderProps {
   workspace: database.Workspace | null;
   activeFile?: string;
-  syncStatus: "synced" | "syncing" | "error" | "offline";
+  syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
   dirtyCount: number;
   onSync: () => void | Promise<void>;
 }
@@ -36,17 +37,17 @@ export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }
               <BreadcrumbItem className="hidden md:block">
                 {activeFile ? (
                   <BreadcrumbLink render={<Link href="/workspace" />}>
-                    {workspace?.name.split("/")[1] || "Workspace"}
+                    {workspace?.name.split('/')[1] || 'Workspace'}
                   </BreadcrumbLink>
                 ) : (
-                  <BreadcrumbPage>{workspace?.name.split("/")[1] || "Workspace"}</BreadcrumbPage>
+                  <BreadcrumbPage>{workspace?.name.split('/')[1] || 'Workspace'}</BreadcrumbPage>
                 )}
               </BreadcrumbItem>
               {activeFile && (
                 <>
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>{activeFile.split("/").pop()}</BreadcrumbPage>
+                    <BreadcrumbPage>{activeFile.split('/').pop()}</BreadcrumbPage>
                   </BreadcrumbItem>
                 </>
               )}
@@ -55,14 +56,15 @@ export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }
         </div>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
               onClick={onSync}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
             >
-              {syncStatus === "syncing" ? (
+              {syncStatus === 'syncing' ? (
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-              ) : syncStatus === "error" ? (
+              ) : syncStatus === 'error' ? (
                 <CloudOff className="h-4 w-4 text-destructive" />
               ) : dirtyCount > 0 ? (
                 <div className="relative">
@@ -74,11 +76,11 @@ export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }
               )}
             </TooltipTrigger>
             <TooltipContent>
-              {syncStatus === "syncing"
-                ? "Syncing..."
+              {syncStatus === 'syncing'
+                ? 'Syncing...'
                 : dirtyCount > 0
                   ? `${dirtyCount} pending changes`
-                  : "Synced"}
+                  : 'Synced'}
             </TooltipContent>
           </Tooltip>
         </div>

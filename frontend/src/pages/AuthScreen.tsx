@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from 'react';
 
-import { CheckCircle2, Copy, ExternalLink, Loader2, Shield } from "lucide-react";
-import { useLocation } from "wouter";
+import { CheckCircle2, Copy, ExternalLink, Loader2, Shield } from 'lucide-react';
+import { useLocation } from 'wouter';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function AuthScreen() {
   const [, setLocation] = useLocation();
-  const [userCode, setUserCode] = useState("");
-  const [verificationURI, setVerificationURI] = useState("");
+  const [userCode, setUserCode] = useState('');
+  const [verificationURI, setVerificationURI] = useState('');
   const [isPolling, setIsPolling] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [requestPrivateAccess, setRequestPrivateAccess] = useState(false);
@@ -20,11 +20,11 @@ export function AuthScreen() {
 
   const startFlow = useCallback(async () => {
     setIsStarting(true);
-    setError("");
+    setError('');
     setFlowStarted(true);
 
     try {
-      const { StartDeviceFlow } = await import("../../wailsjs/go/github/AuthService");
+      const { StartDeviceFlow } = await import('../../wailsjs/go/github/AuthService');
 
       const result = await StartDeviceFlow(requestPrivateAccess);
 
@@ -32,11 +32,13 @@ export function AuthScreen() {
       setVerificationURI(result.verification_uri);
       setIsStarting(false);
 
-      const { PollForToken } = await import("../../wailsjs/go/github/AuthService");
+      const { PollForToken } = await import('../../wailsjs/go/github/AuthService');
       PollForToken(result.device_code, result.interval, result.expires_in);
       setIsPolling(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start authentication");
+      setError(
+        err instanceof Error ? err.message : 'GitHub authorization failed. Please try again.'
+      );
       setIsStarting(false);
     }
   }, [requestPrivateAccess]);
@@ -46,19 +48,19 @@ export function AuthScreen() {
 
     async function setupListeners() {
       try {
-        const { EventsOn } = await import("../../wailsjs/runtime/runtime");
+        const { EventsOn } = await import('../../wailsjs/runtime/runtime');
 
-        EventsOn("auth:complete", () => {
+        EventsOn('auth:complete', () => {
           if (!cancelled) {
             setIsPolling(false);
 
             setTimeout(() => {
-              if (!cancelled) setLocation("/setup-workspace");
+              if (!cancelled) setLocation('/setup-workspace');
             }, 1000);
           }
         });
 
-        EventsOn("auth:error", (errorMsg: string) => {
+        EventsOn('auth:error', (errorMsg: string) => {
           if (!cancelled) {
             setIsPolling(false);
             setError(errorMsg);
@@ -87,16 +89,16 @@ export function AuthScreen() {
 
   const handleOpenGitHub = useCallback(async () => {
     try {
-      const { OpenVerificationURL } = await import("../../wailsjs/go/github/AuthService");
+      const { OpenVerificationURL } = await import('../../wailsjs/go/github/AuthService');
       OpenVerificationURL(verificationURI);
     } catch {
-      window.open(verificationURI, "_blank");
+      window.open(verificationURI, '_blank');
     }
   }, [verificationURI]);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background p-6">
-      <div className="w-full max-w-md animate-fade-in">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6">
+      <div className="w-full max-w-md animate-fade-in -mt-12">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-border/50 bg-card/80 shadow-lg">
             <Shield className="h-10 w-10 text-violet-400" />
@@ -105,7 +107,7 @@ export function AuthScreen() {
             Welcome to 0x-Excali
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Your lightweight, local-first desktop experience for Excalidraw diagrams.
+            Your lightweight, local-first desktop workspace for visual thinking.
           </p>
         </div>
 
@@ -118,7 +120,7 @@ export function AuthScreen() {
                 size="sm"
                 className="mt-3"
                 onClick={() => {
-                  setError("");
+                  setError('');
                   setFlowStarted(false);
                 }}
               >
@@ -130,12 +132,17 @@ export function AuthScreen() {
 
         {!flowStarted && !error && (
           <Card className="border-border/50 bg-card/50 shadow-xl">
-            <CardContent className="p-6 flex flex-col gap-4">
-              <Button size="lg" className="w-full text-base font-semibold" onClick={startFlow}>
-                Sign up / Sign in with GitHub
-              </Button>
+            <CardContent className="p-6 flex flex-col">
+              <div className="flex flex-col gap-2">
+                <Button size="lg" className="w-full text-base font-semibold" onClick={startFlow}>
+                  Continue with GitHub
+                </Button>
+                <p className="text-center text-xs text-muted-foreground mt-1 mb-3">
+                  New accounts are created automatically after GitHub authorization.
+                </p>
+              </div>
 
-              <div className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-background/50">
+              <div className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-background/50 border border-transparent hover:border-border/50">
                 <div className="flex h-5 items-center mt-0.5">
                   <input
                     id="private-access"
@@ -145,13 +152,16 @@ export function AuthScreen() {
                     onChange={(e) => setRequestPrivateAccess(e.target.checked)}
                   />
                 </div>
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-1.5">
                   <label
                     htmlFor="private-access"
-                    className="text-sm font-medium leading-none cursor-pointer text-foreground/90"
+                    className="text-sm font-medium leading-none cursor-pointer text-foreground/90 select-none"
                   >
-                    Request access to private repositories
+                    Include private repositories
                   </label>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    You can leave this off and enable it later from Settings.
+                  </p>
                 </div>
               </div>
             </CardContent>

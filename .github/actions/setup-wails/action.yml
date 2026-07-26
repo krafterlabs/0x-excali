@@ -11,9 +11,9 @@ inputs:
     required: false
     default: go.sum
 
-  node-version:
+  node-version-file:
     required: false
-    default: "20"
+    default: ".nvmrc"
 
   pnpm-version:
     required: false
@@ -47,14 +47,20 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version-file: ${{ inputs.node-version-file }}
         cache: pnpm
         cache-dependency-path: ${{ inputs.pnpm-lockfile }}
 
     - name: Resolve Wails version
       id: wails
       shell: bash
-      run: bash .github/scripts/install-wails.sh --print-version
+      run: |
+        WAILS_VERSION=$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v2)
+        if [[ -z "${WAILS_VERSION}" ]]; then
+          echo "::error::Wails dependency was not found in go.mod"
+          exit 1
+        fi
+        echo "version=${WAILS_VERSION}" >> "$GITHUB_OUTPUT"
 
     - name: Restore Wails cache
       id: wails-cache
@@ -66,11 +72,17 @@ runs:
     - name: Install Wails
       if: steps.wails-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: bash .github/scripts/install-wails.sh
+      run: |
+        go install "github.com/wailsapp/wails/v2/cmd/wails@${{ steps.wails.outputs.version }}"
 
     - name: Verify Wails
       shell: bash
-      run: bash .github/scripts/install-wails.sh --verify
+      run: |
+        command -v wails >/dev/null 2>&1 || {
+          echo "::error::Wails executable is unavailable"
+          exit 1
+        }
+        wails version
 
     - name: Save Wails cache
       if: steps.wails-cache.outputs.cache-hit != 'true'

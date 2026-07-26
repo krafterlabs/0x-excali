@@ -1,16 +1,16 @@
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch, useLocation } from 'wouter';
 
-import { AuthScreen } from "@/pages/AuthScreen";
-import { LoadingScreen } from "@/pages/LoadingScreen";
-import { Workspace } from "@/pages/Workspace";
-import { WorkspaceSetup } from "@/pages/WorkspaceSetup";
+import { AuthScreen } from '@/pages/AuthScreen';
+import { LoadingScreen } from '@/pages/LoadingScreen';
+import { Workspace } from '@/pages/Workspace';
+import { WorkspaceSetup } from '@/pages/WorkspaceSetup';
 
 function RedirectToLoading() {
   const [, setLocation] = useLocation();
   useEffect(() => {
-    setLocation("/loading");
+    setLocation('/loading');
   }, [setLocation]);
   return null;
 }

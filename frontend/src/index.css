@@ -1,4 +1,7 @@
-@import "@fontsource-variable/geist";
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/inter';
+@import 'tw-animate-css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,35 +9,43 @@
 @layer base {
   :root {
     --background: 1 0 0;
-    --foreground: 0.141 0.005 285.823;
+    --foreground: 0.145 0 0;
     --card: 1 0 0;
-    --card-foreground: 0.141 0.005 285.823;
+    --card-foreground: 0.145 0 0;
     --popover: 1 0 0;
-    --popover-foreground: 0.141 0.005 285.823;
+    --popover-foreground: 0.145 0 0;
     --primary: 0.555 0.163 48.998;
     --primary-foreground: 0.987 0.022 95.277;
     --secondary: 0.967 0.001 286.375;
     --secondary-foreground: 0.21 0.006 285.885;
-    --muted: 0.967 0.001 286.375;
-    --muted-foreground: 0.552 0.016 285.938;
-    --accent: 0.967 0.001 286.375;
-    --accent-foreground: 0.21 0.006 285.885;
+    --muted: 0.97 0 0;
+    --muted-foreground: 0.556 0 0;
+    --accent: 0.97 0 0;
+    --accent-foreground: 0.205 0 0;
     --destructive: 0.577 0.245 27.325;
-    --border: 0.92 0.004 286.32;
-    --input: 0.92 0.004 286.32;
-    --ring: 0.705 0.015 286.067;
+    --border: 0.922 0 0;
+    --input: 0.922 0 0;
+    --ring: 0.708 0 0;
     --radius: 0.625rem;
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
     --sidebar: 0.985 0 0;
-    --sidebar-foreground: 0.141 0.005 285.823;
+    --sidebar-foreground: 0.145 0 0;
     --sidebar-primary: 0.666 0.179 58.318;
     --sidebar-primary-foreground: 0.987 0.022 95.277;
-    --sidebar-accent: 0.967 0.001 286.375;
-    --sidebar-accent-foreground: 0.21 0.006 285.885;
-    --sidebar-border: 0.92 0.004 286.32;
-    --sidebar-ring: 0.705 0.015 286.067;
+    --sidebar-accent: 0.97 0 0;
+    --sidebar-accent-foreground: 0.205 0 0;
+    --sidebar-border: 0.922 0 0;
+    --sidebar-ring: 0.708 0 0;
+    --chart-1: 0.879 0.169 91.605;
+    --chart-2: 0.769 0.188 70.08;
+    --chart-3: 0.666 0.179 58.318;
+    --chart-4: 0.555 0.163 48.998;
+    --chart-5: 0.473 0.137 46.201;
   }
 
-  .app-dark {
+  .dark {
     --background: 0.2 0 0;
     /* #1a1a1a Main background */
     --foreground: 0.9 0 0;
@@ -76,10 +87,6 @@
     --sidebar-ring: 0.6 0.15 45;
   }
 
-  /* Default un-colored borders/outlines to transparent so no phantom grey box
-     appears around buttons and panels. Components that want a border set an
-     explicit color (e.g. border-border/50), which wins over this base rule.
-     Excalidraw is excluded so its own styles are untouched. */
   *:not(.excalidraw):not(.excalidraw *) {
     @apply border-transparent outline-transparent;
   }
@@ -91,63 +98,81 @@
   html {
     @apply font-sans;
   }
-}
 
-/* ============================================================
-   Custom Animations
-   ============================================================ */
-
-@keyframes loading-bar {
-  0% {
-    width: 0%;
-    transform: translateX(0);
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', sans-serif;
   }
 
-  50% {
-    width: 60%;
-  }
-
-  100% {
-    width: 100%;
-    transform: translateX(100%);
+  * {
+    @apply border-border outline-ring/50;
   }
 }
 
-@keyframes pulse-slow {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(1);
+@layer utilities {
+
+  /* Tailwind v4 backward compatibility overrides for Shadcn UI components */
+  .w-\(--sidebar-width\) {
+    width: var(--sidebar-width);
   }
 
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
+  .w-\(--sidebar-width-icon\) {
+    width: var(--sidebar-width-icon);
+  }
+
+  .w-\(--skeleton-width\) {
+    width: var(--skeleton-width);
+  }
+
+  .w-\(--anchor-width\) {
+    width: var(--anchor-width);
+  }
+
+  .h-\(--height\) {
+    height: var(--height);
+  }
+
+  .h-\(--toast-height\) {
+    height: var(--toast-height);
+  }
+
+  .h-\(--available-height\) {
+    height: var(--available-height);
+  }
+
+  .origin-\(--transform-origin\) {
+    transform-origin: var(--transform-origin);
+  }
+
+  .gap-\(--card-spacing\) {
+    gap: var(--card-spacing);
+  }
+
+  .py-\(--card-spacing\) {
+    padding-top: var(--card-spacing);
+    padding-bottom: var(--card-spacing);
+  }
+
+  .px-\(--card-spacing\) {
+    padding-left: var(--card-spacing);
+    padding-right: var(--card-spacing);
+  }
+
+  .pb-\(--card-spacing\) {
+    padding-bottom: var(--card-spacing);
+  }
+
+  .pt-\(--card-spacing\) {
+    padding-top: var(--card-spacing);
   }
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@layer components {
+
+  /* Fix Shadcn UI SidebarMenuButton padding in icon mode to prevent avatars from being cropped */
+  [data-collapsible='icon'] [data-sidebar='menu-button'][data-size='lg'] {
+    padding: 0 !important;
   }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-loading-bar {
-  animation: loading-bar 2s ease-in-out infinite;
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.5s ease-out forwards;
 }
 
 /* ============================================================

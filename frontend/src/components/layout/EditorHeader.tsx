@@ -1,4 +1,4 @@
-import { Save } from "lucide-react";
+import { Save } from 'lucide-react';
 
 export interface EditorHeaderProps {
   saving: boolean;

@@ -1,22 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { FileText, History, LayoutTemplate, Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
+import { FileText, History, LayoutTemplate, Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
 
-import { AppShell } from "@/components/layout/AppShell";
-import { Button } from "@/components/ui/button";
+import { AppShell } from '@/components/layout/AppShell';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/toast";
-import { CanvasView } from "@/pages/CanvasView";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/toast';
+import { CanvasView } from '@/pages/CanvasView';
 
-import { database } from "../../wailsjs/go/models";
+import { database } from '../../wailsjs/go/models';
 
 interface WorkspaceProps {
   fileId?: string;
@@ -30,8 +30,8 @@ export function Workspace({ fileId }: WorkspaceProps) {
   const [, setLocation] = useLocation();
   const [workspace, setWorkspace] = useState<database.Workspace | null>(null);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
-  const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "error" | "offline">(
-    "synced"
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error' | 'offline'>(
+    'synced'
   );
   const [dirtyCount, setDirtyCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,9 +45,22 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewDiagram, setShowNewDiagram] = useState(false);
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemParent, setNewItemParent] = useState("");
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemParent, setNewItemParent] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const refreshTree = useCallback(async () => {
+    try {
+      const { GetFolderContents, GetDirtyFileCount } =
+        await import('../../wailsjs/go/workspace/Service');
+      const allNodes = await loadAllNodes(GetFolderContents);
+      setFileTree(buildTree(allNodes));
+      const dirty = await GetDirtyFileCount();
+      setDirtyCount(dirty);
+    } catch (err) {
+      console.error('Refresh error:', err);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +68,11 @@ export function Workspace({ fileId }: WorkspaceProps) {
     async function loadData() {
       try {
         const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount } =
-          await import("../../wailsjs/go/workspace/Service");
+          await import('../../wailsjs/go/workspace/Service');
 
         const ws = await GetActiveWorkspace();
         if (!ws) {
-          setLocation("/setup-workspace");
+          setLocation('/setup-workspace');
           return;
         }
         if (!cancelled) setWorkspace(ws);
@@ -70,7 +83,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
         const dirty = await GetDirtyFileCount();
         if (!cancelled) setDirtyCount(dirty);
 
-        const { GetAuthStatus } = await import("../../wailsjs/go/github/AuthService");
+        const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
         const auth = await GetAuthStatus();
         if (auth?.authenticated && !cancelled) {
           setAuthUser({
@@ -82,7 +95,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
         if (!cancelled) setLoading(false);
       } catch (err) {
-        console.error("Workspace load error:", err);
+        console.error('Workspace load error:', err);
         if (!cancelled) setLoading(false);
       }
     }
@@ -98,17 +111,17 @@ export function Workspace({ fileId }: WorkspaceProps) {
     let cancelled = false;
     async function setupEvents() {
       try {
-        const { EventsOn } = await import("../../wailsjs/runtime/runtime");
-        EventsOn("sync:started", () => {
-          if (!cancelled) setSyncStatus("syncing");
+        const { EventsOn } = await import('../../wailsjs/runtime/runtime');
+        EventsOn('sync:started', () => {
+          if (!cancelled) setSyncStatus('syncing');
         });
-        EventsOn("sync:completed", () => {
-          if (!cancelled) setSyncStatus("synced");
+        EventsOn('sync:completed', () => {
+          if (!cancelled) setSyncStatus('synced');
         });
-        EventsOn("sync:error", () => {
-          if (!cancelled) setSyncStatus("error");
+        EventsOn('sync:error', () => {
+          if (!cancelled) setSyncStatus('error');
         });
-        EventsOn("workspace:updated", () => {
+        EventsOn('workspace:updated', () => {
           if (!cancelled) refreshTree();
         });
       } catch {
@@ -119,48 +132,33 @@ export function Workspace({ fileId }: WorkspaceProps) {
     return () => {
       cancelled = true;
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const refreshTree = useCallback(async () => {
-    try {
-      const { GetFolderContents, GetDirtyFileCount } =
-        await import("../../wailsjs/go/workspace/Service");
-      const allNodes = await loadAllNodes(GetFolderContents);
-      setFileTree(buildTree(allNodes));
-      const dirty = await GetDirtyFileCount();
-      setDirtyCount(dirty);
-    } catch (err) {
-      console.error("Refresh error:", err);
-    }
-  }, []);
+  }, [refreshTree]);
 
   const handleForceSync = useCallback(async () => {
     toast.add({
-      title: "Started syncing",
-      description: "Sync in progress...",
-      type: "info",
+      title: 'Started syncing',
+      description: 'Sync in progress...',
+      type: 'info',
       timeout: 3000,
     });
-    setSyncStatus("syncing");
+    setSyncStatus('syncing');
     try {
-      const { SyncFileTree } = await import("../../wailsjs/go/workspace/Service");
+      const { SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
       await SyncFileTree();
       await refreshTree();
-      setSyncStatus("synced");
+      setSyncStatus('synced');
       toast.add({
-        title: "Sync completed",
+        title: 'Sync completed',
         description: `Synced to github (${workspace?.name}) is complete.`,
-        type: "success",
+        type: 'success',
         timeout: 5000,
       });
     } catch (err) {
-      console.error("Sync error:", err);
+      console.error('Sync error:', err);
       toast.add({
-        title: "Sync failed",
-        description: err instanceof Error ? err.message : "Could not synchronize with GitHub.",
-        type: "error",
+        title: 'Sync failed',
+        description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
+        type: 'error',
         timeout: 5000,
       });
     }
@@ -175,34 +173,34 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const handleLogout = useCallback(async () => {
     try {
-      const { Logout } = await import("../../wailsjs/go/github/AuthService");
+      const { Logout } = await import('../../wailsjs/go/github/AuthService');
       await Logout();
-      setLocation("/auth");
+      setLocation('/auth');
     } catch {
-      setLocation("/auth");
+      setLocation('/auth');
     }
   }, [setLocation]);
 
   const nameInvalid = (() => {
     const n = newItemName.trim();
-    return !n || n.startsWith(".") || n.includes("/");
+    return !n || n.startsWith('.') || n.includes('/');
   })();
 
   const confirmCreateFolder = async () => {
     if (nameInvalid) return;
     setCreating(true);
     try {
-      const { CreateFolder } = await import("../../wailsjs/go/workspace/Service");
+      const { CreateFolder } = await import('../../wailsjs/go/workspace/Service');
       const path = newItemParent ? `${newItemParent}/${newItemName.trim()}` : newItemName.trim();
       await CreateFolder(path);
       await refreshTree();
       setShowNewFolder(false);
     } catch (err) {
-      console.error("Create folder error:", err);
+      console.error('Create folder error:', err);
       toast.add({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create folder",
-        type: "error",
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to create folder',
+        type: 'error',
         timeout: 5000,
       });
     }
@@ -213,7 +211,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
     if (nameInvalid) return;
     setCreating(true);
     try {
-      const { CreateDiagram } = await import("../../wailsjs/go/workspace/Service");
+      const { CreateDiagram } = await import('../../wailsjs/go/workspace/Service');
       await CreateDiagram(newItemParent, newItemName.trim());
       await refreshTree();
       setShowNewDiagram(false);
@@ -223,11 +221,11 @@ export function Workspace({ fileId }: WorkspaceProps) {
         : `${newItemName.trim()}.excalidraw`;
       setLocation(`/workspace/${encodeURIComponent(path)}`);
     } catch (err) {
-      console.error("Create diagram error:", err);
+      console.error('Create diagram error:', err);
       toast.add({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create diagram",
-        type: "error",
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to create diagram',
+        type: 'error',
         timeout: 5000,
       });
     }
@@ -236,18 +234,18 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const handleDelete = async (path: string) => {
     try {
-      const { DeleteItem } = await import("../../wailsjs/go/workspace/Service");
+      const { DeleteItem } = await import('../../wailsjs/go/workspace/Service');
       await DeleteItem(path);
       await refreshTree();
       if (fileId && decodeURIComponent(fileId) === path) {
-        setLocation("/workspace");
+        setLocation('/workspace');
       }
     } catch (err) {
-      console.error("Delete error:", err);
+      console.error('Delete error:', err);
       toast.add({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to delete item",
-        type: "error",
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to delete item',
+        type: 'error',
         timeout: 5000,
       });
     }
@@ -277,13 +275,13 @@ export function Workspace({ fileId }: WorkspaceProps) {
     fileTree,
     onFileClick: (path: string) => setLocation(`/workspace/${encodeURIComponent(path)}`),
     onCreateFolder: (parentPath?: string) => {
-      setNewItemParent(parentPath || "");
-      setNewItemName("");
+      setNewItemParent(parentPath || '');
+      setNewItemName('');
       setShowNewFolder(true);
     },
     onCreateDiagram: (parentPath?: string) => {
-      setNewItemParent(parentPath || "");
-      setNewItemName("");
+      setNewItemParent(parentPath || '');
+      setNewItemName('');
       setShowNewDiagram(true);
     },
     onDelete: handleDelete,
@@ -331,9 +329,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
               placeholder="Folder name"
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && confirmCreateFolder()}
+              onKeyDown={(e) => e.key === 'Enter' && confirmCreateFolder()}
             />
-            {newItemName.trim().startsWith(".") && (
+            {newItemName.trim().startsWith('.') && (
               <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>
             )}
           </div>
@@ -364,9 +362,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
               placeholder="Diagram name"
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && confirmCreateDiagram()}
+              onKeyDown={(e) => e.key === 'Enter' && confirmCreateDiagram()}
             />
-            {newItemName.trim().startsWith(".") && (
+            {newItemName.trim().startsWith('.') && (
               <p className="text-xs text-destructive mt-2">Name can't start with a dot.</p>
             )}
           </div>
@@ -391,12 +389,12 @@ async function loadAllNodes(
   const walk = async (parentPath: string) => {
     const children = (await getFolderContents(parentPath)) || [];
     for (const child of children) {
-      if (child.name.startsWith(".")) continue;
+      if (child.name.startsWith('.')) continue;
       all.push(child);
-      if (child.type === "folder" || child.type === "tree") await walk(child.path);
+      if (child.type === 'folder' || child.type === 'tree') await walk(child.path);
     }
   };
-  await walk("");
+  await walk('');
   return all;
 }
 

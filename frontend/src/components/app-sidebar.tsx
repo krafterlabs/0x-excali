@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
 
 import {
   ChevronRight,
@@ -12,17 +12,17 @@ import {
   MoreHorizontal,
   Plus,
   Trash2,
-} from "lucide-react";
-import { useLocation } from "wouter";
+} from 'lucide-react';
+import { useLocation } from 'wouter';
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   Sidebar,
   SidebarContent,
@@ -35,12 +35,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "@/components/ui/sidebar";
-import { SidebarFooter } from "@/components/ui/sidebar";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/sidebar';
+import { SidebarFooter } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
-import { database } from "../../wailsjs/go/models";
-import { NavUser } from "./nav-user";
+import { database } from '../../wailsjs/go/models';
+import { NavUser } from './nav-user';
 
 export interface SidebarProps {
   workspace: database.Workspace | null;
@@ -67,9 +67,9 @@ export function AppSidebar({
   ...props
 }: SidebarProps & React.ComponentProps<typeof Sidebar>) {
   const [location] = useLocation();
-  const selectedPath = location.startsWith("/workspace/")
+  const selectedPath = location.startsWith('/workspace/')
     ? decodeURIComponent(location.slice(11))
-    : "";
+    : '';
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -91,9 +91,9 @@ export function AppSidebar({
                   <path d="M9 18c-4.51 2-5-2-7-2" />
                 </svg>
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold tracking-tight text-foreground">
-                  {workspace?.name || "Workspace"}
+                  {workspace?.name || 'Workspace'}
                 </span>
                 {workspace?.default_branch && (
                   <div className="flex items-center text-xs text-muted-foreground mt-0.5">
@@ -107,7 +107,7 @@ export function AppSidebar({
           <SidebarMenuItem className="px-2 group-data-[collapsible=icon]:px-0">
             <SidebarMenuButton
               className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground shadow-sm justify-center group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-0"
-              onClick={() => onCreateDiagram("")}
+              onClick={() => onCreateDiagram('')}
               tooltip="New diagram"
             >
               <Plus className="h-4 w-4 shrink-0" />
@@ -119,7 +119,7 @@ export function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Files</SidebarGroupLabel>
-          <SidebarGroupAction title="New Folder" onClick={() => onCreateFolder("")}>
+          <SidebarGroupAction title="New Folder" onClick={() => onCreateFolder('')}>
             <FolderPlus /> <span className="sr-only">New Folder</span>
           </SidebarGroupAction>
           <SidebarMenu>
@@ -173,7 +173,7 @@ function FolderTree({
   }
 
   const sorted = [...nodes].sort((a, b) => {
-    if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
 
@@ -204,8 +204,8 @@ function TreeItem({
   onCreateDiagram,
   onDelete,
 }: TreeProps & { node: TreeNode }) {
-  const isFolder = node.type === "folder" || node.type === "tree";
-  const isExcalidraw = node.name.endsWith(".excalidraw");
+  const isFolder = node.type === 'folder' || node.type === 'tree';
+  const isExcalidraw = node.name.endsWith('.excalidraw');
   const isSelected = selectedPath === node.path;
 
   const [unsupported, setUnsupported] = React.useState(false);
@@ -258,9 +258,9 @@ function TreeItem({
               <SidebarMenuButton tooltip={node.name} style={{ paddingLeft: `${paddingLeft}px` }} />
             }
           >
-            <ChevronRight className="transition-transform group-data-[open]/menu-button:rotate-90 group-data-[collapsible=icon]:hidden shrink-0" />
-            <Folder className="group-data-[open]/menu-button:hidden text-amber-400 shrink-0" />
-            <FolderOpen className="hidden group-data-[open]/menu-button:block text-amber-400 shrink-0" />
+            <ChevronRight className="transition-transform group-data-[open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden shrink-0" />
+            <Folder className="group-data-[open]/collapsible:hidden text-amber-400 shrink-0" />
+            <FolderOpen className="hidden group-data-[open]/collapsible:block text-amber-400 shrink-0" />
             <span className="truncate flex-1">{node.name}</span>
           </CollapsibleTrigger>
           <NodeMenu />
@@ -289,7 +289,7 @@ function TreeItem({
         style={{ paddingLeft: `${paddingLeft + 16}px` }}
       >
         <FileText
-          className={cn(isExcalidraw ? "text-violet-400" : "text-muted-foreground opacity-50")}
+          className={cn(isExcalidraw ? 'text-violet-400' : 'text-muted-foreground opacity-50')}
         />
         <span className="truncate flex-1">{node.name}</span>
         {unsupported && (

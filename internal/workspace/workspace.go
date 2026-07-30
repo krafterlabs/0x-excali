@@ -16,6 +16,14 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// LocalWorkspaceRepoID is the sentinel repo_id for offline-only workspaces.
+const LocalWorkspaceRepoID int64 = 0
+
+// IsLocalWorkspace reports whether a workspace is local-only (no GitHub repo).
+func IsLocalWorkspace(ws *database.Workspace) bool {
+	return ws != nil && ws.RepoID == LocalWorkspaceRepoID
+}
+
 // Service manages workspace selection, local file tree cache, and diagram CRUD.
 type Service struct {
 	ctx      context.Context
@@ -70,6 +78,85 @@ func (s *Service) SelectWorkspace(repo github.Repository) error {
 	}
 
 	log.Printf("workspace: selected %s", repo.FullName)
+	return nil
+}
+
+// SelectLocalWorkspace activates the built-in local-only workspace.
+func (s *Service) SelectLocalWorkspace() error {
+	ws := &database.Workspace{
+		RepoID:        LocalWorkspaceRepoID,
+		Owner:         "local",
+		Name:          "Local Workspace",
+		FullName:      "local/workspace",
+		DefaultBranch: "main",
+		IsPrivate:     true,
+	}
+
+	if err := s.db.UpsertWorkspace(s.ctx, ws); err != nil {
+		return fmt.Errorf("failed to save local workspace: %w", err)
+	}
+
+	log.Printf("workspace: selected local workspace")
+	return nil
+}
+
+// IsActiveWorkspaceLocal reports whether the current workspace is local-only.
+func (s *Service) IsActiveWorkspaceLocal() bool {
+	return IsLocalWorkspace(s.GetActiveWorkspace())
+}
+
+// LinkGitHubRepository connects a GitHub repo and migrates local workspace content into it.
+func (s *Service) LinkGitHubRepository(repo github.Repository) error {
+	localWS, err := s.db.GetWorkspaceByRepoID(s.ctx, LocalWorkspaceRepoID)
+	if err != nil {
+		return fmt.Errorf("failed to look up local workspace: %w", err)
+	}
+
+	var localNodes []database.FileNode
+	if localWS != nil {
+		localNodes, err = s.db.GetAllFileNodes(s.ctx, localWS.ID)
+		if err != nil {
+			return fmt.Errorf("failed to read local workspace files: %w", err)
+		}
+	}
+
+	if err := s.SelectWorkspace(repo); err != nil {
+		return err
+	}
+
+	ghWS, err := s.db.GetActiveWorkspace(s.ctx)
+	if err != nil || ghWS == nil {
+		return fmt.Errorf("failed to activate GitHub workspace")
+	}
+
+	for _, node := range localNodes {
+		copy := node
+		copy.ID = 0
+		copy.WorkspaceID = ghWS.ID
+		copy.SHA = ""
+		copy.IsDirty = true
+		if err := s.db.UpsertFileNode(s.ctx, &copy); err != nil {
+			return fmt.Errorf("failed to migrate %s: %w", node.Path, err)
+		}
+
+		if node.Type != "file" {
+			continue
+		}
+		if node.Content == "" {
+			continue
+		}
+		op := "create"
+		if err := s.db.EnqueueSync(s.ctx, ghWS.ID, op, node.Path, node.Content); err != nil {
+			return fmt.Errorf("failed to queue sync for %s: %w", node.Path, err)
+		}
+	}
+
+	if s.syncer != nil {
+		s.syncer.PushPending()
+	}
+
+	wailsRuntime.EventsEmit(s.ctx, "workspace:linked", repo.FullName)
+	log.Printf("workspace: linked GitHub repo %s with %d migrated nodes", repo.FullName, len(localNodes))
 	return nil
 }
 
@@ -162,6 +249,10 @@ func (s *Service) syncFileTree(pushLocalChanges bool) error {
 	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
+	}
+
+	if IsLocalWorkspace(ws) {
+		return nil
 	}
 
 	wailsRuntime.EventsEmit(s.ctx, "sync:tree:started")
@@ -277,10 +368,12 @@ func (s *Service) CreateFolder(folderPath string) error {
 		return fmt.Errorf("failed to create folder: %w", err)
 	}
 
-	// Queue a .gitkeep file creation for sync
-	gitkeepPath := folderPath + "/.gitkeep"
-	if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", gitkeepPath, ""); err != nil {
-		return fmt.Errorf("saved locally but failed to queue sync: %w", err)
+	// Queue a .gitkeep file creation for sync (GitHub repos only)
+	if !IsLocalWorkspace(ws) {
+		gitkeepPath := folderPath + "/.gitkeep"
+		if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", gitkeepPath, ""); err != nil {
+			return fmt.Errorf("saved locally but failed to queue sync: %w", err)
+		}
 	}
 
 	wailsRuntime.EventsEmit(s.ctx, "workspace:updated")
@@ -344,8 +437,10 @@ func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, er
 	}
 
 	// Queue for remote sync
-	if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", diagramPath, string(content)); err != nil {
-		return nil, fmt.Errorf("saved locally but failed to queue sync: %w", err)
+	if !IsLocalWorkspace(ws) {
+		if err := s.db.EnqueueSync(s.ctx, ws.ID, "create", diagramPath, string(content)); err != nil {
+			return nil, fmt.Errorf("saved locally but failed to queue sync: %w", err)
+		}
 	}
 
 	wailsRuntime.EventsEmit(s.ctx, "workspace:updated")
@@ -380,8 +475,10 @@ func (s *Service) SaveDiagram(path, content string) error {
 	}
 
 	// Queue for remote sync
-	if err := s.db.EnqueueSync(s.ctx, ws.ID, "update", path, content); err != nil {
-		return fmt.Errorf("saved locally but failed to queue sync: %w", err)
+	if !IsLocalWorkspace(ws) {
+		if err := s.db.EnqueueSync(s.ctx, ws.ID, "update", path, content); err != nil {
+			return fmt.Errorf("saved locally but failed to queue sync: %w", err)
+		}
 	}
 
 	return nil
@@ -403,6 +500,10 @@ func (s *Service) GetDiagram(path string) (string, error) {
 
 	if node != nil && node.Content != "" {
 		return node.Content, nil
+	}
+
+	if IsLocalWorkspace(ws) {
+		return "", fmt.Errorf("diagram not found: %s", path)
 	}
 
 	// Fetch from GitHub
@@ -449,13 +550,15 @@ func (s *Service) DeleteItem(path string) error {
 	}
 
 	// Queue a remote deletion for each file that exists on GitHub (has a SHA)
-	for _, f := range files {
-		if f.SHA == "" {
-			continue // never pushed to GitHub — nothing to delete remotely
-		}
-		payload, _ := json.Marshal(map[string]string{"sha": f.SHA})
-		if err := s.db.EnqueueSync(s.ctx, ws.ID, "delete", f.Path, string(payload)); err != nil {
-			return fmt.Errorf("deleted locally but failed to queue sync for %s: %w", f.Path, err)
+	if !IsLocalWorkspace(ws) {
+		for _, f := range files {
+			if f.SHA == "" {
+				continue
+			}
+			payload, _ := json.Marshal(map[string]string{"sha": f.SHA})
+			if err := s.db.EnqueueSync(s.ctx, ws.ID, "delete", f.Path, string(payload)); err != nil {
+				return fmt.Errorf("deleted locally but failed to queue sync for %s: %w", f.Path, err)
+			}
 		}
 	}
 

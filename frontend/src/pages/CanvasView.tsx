@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 
 import { EditorHeader } from '@/components/layout/EditorHeader';
 import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/lib/routes';
 
 import { SaveDiagram } from '../../wailsjs/go/workspace/Service';
 
@@ -163,7 +164,7 @@ export function CanvasView({ id }: CanvasViewProps) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-background">
         <p className="text-sm text-destructive">{error}</p>
-        <Button variant="outline" onClick={() => setLocation('/workspace')}>
+        <Button variant="outline" onClick={() => setLocation(ROUTES.WORKSPACE)}>
           Back to Workspace
         </Button>
       </div>

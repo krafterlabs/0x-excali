@@ -23,6 +23,7 @@ type Config struct {
 	ExportDarkMode   bool   `json:"exportDarkMode"`
 	AutoSync         bool   `json:"autoSync"`
 	SyncIntervalSecs int    `json:"syncIntervalSecs"`
+	LocalOnly        bool   `json:"localOnly"` // true when using app without GitHub
 }
 
 // Service manages application settings with local DB persistence.
@@ -68,6 +69,29 @@ func (s *Service) GetSettings() Config {
 	}
 
 	return config
+}
+
+// EnableLocalMode marks the app as local-only and ensures a local workspace exists.
+func (s *Service) EnableLocalMode() error {
+	config := s.GetSettings()
+	config.LocalOnly = true
+	if err := s.UpdateSettings(config); err != nil {
+		return err
+	}
+	wailsRuntime.EventsEmit(s.ctx, "settings:local-mode-enabled")
+	return nil
+}
+
+// DisableLocalMode turns off local-only mode after GitHub is linked.
+func (s *Service) DisableLocalMode() error {
+	config := s.GetSettings()
+	config.LocalOnly = false
+	return s.UpdateSettings(config)
+}
+
+// IsLocalOnly returns whether the user is using the app without GitHub.
+func (s *Service) IsLocalOnly() bool {
+	return s.GetSettings().LocalOnly
 }
 
 // UpdateSettings saves new settings to the local DB and emits an update event.

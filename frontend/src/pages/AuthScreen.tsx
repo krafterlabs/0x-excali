@@ -6,6 +6,9 @@ import { useLocation } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { hasLinkGitHubIntent } from '@/lib/auth-flow';
+import { ROUTES, settingsLinkGitHubPath } from '@/lib/routes';
+import { TIMING } from '@/lib/timing';
 
 export function AuthScreen() {
   const [, setLocation] = useLocation();
@@ -55,8 +58,12 @@ export function AuthScreen() {
             setIsPolling(false);
 
             setTimeout(() => {
-              if (!cancelled) setLocation('/setup-workspace');
-            }, 1000);
+              if (cancelled) return;
+              const nextRoute = hasLinkGitHubIntent()
+                ? settingsLinkGitHubPath()
+                : ROUTES.SETUP_WORKSPACE;
+              setLocation(nextRoute);
+            }, TIMING.AUTH_COMPLETE_REDIRECT_MS);
           }
         });
 
@@ -81,11 +88,23 @@ export function AuthScreen() {
     try {
       await navigator.clipboard.writeText(userCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), TIMING.CLIPBOARD_FEEDBACK_MS);
     } catch {
       void 0;
     }
   }, [userCode]);
+
+  const handleSkip = useCallback(async () => {
+    try {
+      const { EnableLocalMode } = await import('../../wailsjs/go/settings/Service');
+      const { SelectLocalWorkspace } = await import('../../wailsjs/go/workspace/Service');
+      await EnableLocalMode();
+      await SelectLocalWorkspace();
+      setLocation(ROUTES.WORKSPACE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start local mode');
+    }
+  }, [setLocation]);
 
   const handleOpenGitHub = useCallback(async () => {
     try {
@@ -137,8 +156,17 @@ export function AuthScreen() {
                 <Button size="lg" className="w-full text-base font-semibold" onClick={startFlow}>
                   Continue with GitHub
                 </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full text-base"
+                  onClick={handleSkip}
+                >
+                  Continue without GitHub
+                </Button>
                 <p className="text-center text-xs text-muted-foreground mt-1 mb-3">
-                  New accounts are created automatically after GitHub authorization.
+                  Use offline mode to keep diagrams on this device. You can connect GitHub later in
+                  Settings.
                 </p>
               </div>
 

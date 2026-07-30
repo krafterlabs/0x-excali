@@ -27,7 +27,7 @@
 ```
 
 1. **Backend (Go):** Handles local SQLite persistence, encrypted token storage, GitHub REST calls, sync queue management, and Wails event emission.
-2. **Frontend (React/TypeScript):** Renders the UI, the Excalidraw canvas, and calls Go methods via Wails-generated bindings in `frontend/wailsjs/go/`.
+2. **Frontend (React/TypeScript):** Renders the UI, the drawing canvas, and calls Go methods via Wails-generated bindings in `frontend/wailsjs/go/`.
 
 ---
 
@@ -165,7 +165,7 @@ The **frontend-facing service** — the only package bound directly to the Wails
 | `GetActiveWorkspace()` | Returns the current workspace row |
 | `SyncFileTree()` | **Push queued changes → pull remote tree into cache.** Emits `sync:tree:started` / `sync:tree:completed`. |
 | `GetFolderContents(parentPath)` | Returns direct children of a folder from the local cache |
-| `CreateDiagram(folderPath, name)` | Creates a blank `.excalidraw` JSON file locally + queues `create` |
+| `CreateDiagram(folderPath, name)` | Creates a blank diagram file locally + queues `create` |
 | `CreateFolder(folderPath)` | Creates a folder node locally + queues a `.gitkeep` `create` |
 | `SaveDiagram(path, content)` | Updates local content + queues `update`. Called by debounced autosave. |
 | `GetDiagram(path)` | Cache-first (content present), GitHub fallback; caches the fetched content. |
@@ -211,7 +211,7 @@ A single-page application: **React 18 + TypeScript + Vite**.
 | Framework | React 18 |
 | Bundler | Vite (`moduleResolution: "Bundler"`) |
 | Styling | TailwindCSS v3 + Shadcn UI |
-| Canvas | `@excalidraw/excalidraw` |
+| Canvas | embedded drawing canvas (`@excalidraw/excalidraw`) |
 | Routing | `wouter` |
 
 ### Pages
@@ -221,7 +221,7 @@ A single-page application: **React 18 + TypeScript + Vite**.
 | `AuthScreen.tsx` | GitHub Device Flow — polls for token, shows code + URL |
 | `WorkspaceSetup.tsx` | Repo picker / creator |
 | `Workspace.tsx` | Main shell — file tree, create/delete dialogs, hosts `CanvasView` |
-| `CanvasView.tsx` | Excalidraw editor with 1.5s debounced autosave |
+| `CanvasView.tsx` | Drawing editor with 1.5s debounced autosave |
 | `LoadingScreen.tsx` | Splash while app initialises |
 
 ### Component Structure
@@ -236,7 +236,7 @@ A single-page application: **React 18 + TypeScript + Vite**.
 
 - `index.css` is the single source of truth: light/dark theming via `oklch()` CSS variables; `tailwind.config.js` maps them into utilities (`bg-card`, `border-border`, …).
 - **Shadcn UI Integration:** The app uses Shadcn UI components (powered by `@base-ui/react` and Radix primitives) for a modern, Next.js-style design system. Components include Buttons, Inputs, Dialogs, and Toasts for sync notifications.
-- **Excalidraw isolation:** base reset uses `*:not(.excalidraw):not(.excalidraw *)` so app styles never leak into the canvas.
+- **Canvas isolation:** base reset uses `*:not(.excalidraw):not(.excalidraw *)` so app styles never leak into the drawing canvas.
 - **Color convention:** orange is reserved for primary actions and selection; borders use `transparent` by default, and components opt in explicitly.
 
 ### Wails IPC Bindings

@@ -22,9 +22,17 @@ export interface HeaderProps {
   syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
   dirtyCount: number;
   onSync: () => void | Promise<void>;
+  showSync?: boolean;
 }
 
-export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }: HeaderProps) {
+export function Header({
+  workspace,
+  activeFile,
+  syncStatus,
+  dirtyCount,
+  onSync,
+  showSync = true,
+}: HeaderProps) {
   return (
     <>
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/50 bg-background px-4">
@@ -57,11 +65,12 @@ export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Tooltip>
-            <TooltipTrigger
-              onClick={onSync}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            >
+          {showSync && (
+            <Tooltip>
+              <TooltipTrigger
+                onClick={onSync}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
               {syncStatus === 'syncing' ? (
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
               ) : syncStatus === 'error' ? (
@@ -83,6 +92,7 @@ export function Header({ workspace, activeFile, syncStatus, dirtyCount, onSync }
                   : 'Synced'}
             </TooltipContent>
           </Tooltip>
+          )}
         </div>
       </header>
     </>

@@ -169,3 +169,30 @@ func (db *DB) GetFilesUnder(ctx context.Context, workspaceID int64, path string)
 	return nodes, rows.Err()
 }
 
+// GetAllFileNodes returns every node in a workspace file tree.
+func (db *DB) GetAllFileNodes(ctx context.Context, workspaceID int64) ([]FileNode, error) {
+	rows, err := db.conn.QueryContext(ctx, `
+		SELECT id, workspace_id, path, name, type, sha, content, parent_path, size_bytes,
+			   created_at, updated_at, COALESCE(synced_at, ''), is_dirty
+		FROM file_tree
+		WHERE workspace_id = ?
+		ORDER BY path ASC
+	`, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []FileNode
+	for rows.Next() {
+		var n FileNode
+		var isDirtyInt int
+		if err := rows.Scan(&n.ID, &n.WorkspaceID, &n.Path, &n.Name, &n.Type, &n.SHA, &n.Content,
+			&n.ParentPath, &n.SizeBytes, &n.CreatedAt, &n.UpdatedAt, &n.SyncedAt, &isDirtyInt); err != nil {
+			return nil, err
+		}
+		n.IsDirty = isDirtyInt == 1
+		nodes = append(nodes, n)
+	}
+	return nodes, rows.Err()
+}

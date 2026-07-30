@@ -80,4 +80,3 @@ func (db *DB) UpdateSyncItemStatus(ctx context.Context, id int64, status, errorM
 	`, status, errorMsg, status, status, id)
 	return err
 }
-

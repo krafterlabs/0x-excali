@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 
 import { useLocation } from 'wouter';
 
+import { resolveStartupNavigation } from '@/lib/startup-navigation';
+import { TIMING } from '@/lib/timing';
+
 export function LoadingScreen() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState('Initializing...');
@@ -9,42 +12,59 @@ export function LoadingScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    const scheduleRoute = (route: string, delayMs: number) => {
+      setTimeout(() => {
+        if (!cancelled) {
+          setLocation(route);
+        }
+      }, delayMs);
+    };
+
     async function checkAuth() {
       try {
         setStatus('Connecting to backend...');
 
         const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
-        const result = await GetAuthStatus();
+        const { GetActiveWorkspace, SelectLocalWorkspace } =
+          await import('../../wailsjs/go/workspace/Service');
+        const { IsLocalOnly } = await import('../../wailsjs/go/settings/Service');
+
+        const auth = await GetAuthStatus();
+        const localOnly = await IsLocalOnly();
 
         if (cancelled) return;
 
-        if (result.authenticated) {
-          setStatus('Welcome back, ' + result.username);
+        let hasWorkspace = Boolean(await GetActiveWorkspace());
 
-          const { GetActiveWorkspace } = await import('../../wailsjs/go/workspace/Service');
-          const workspace = await GetActiveWorkspace();
-
-          if (cancelled) return;
-
-          if (workspace) {
-            setTimeout(() => !cancelled && setLocation('/workspace'), 800);
-          } else {
-            setTimeout(() => !cancelled && setLocation('/setup-workspace'), 800);
-          }
-        } else {
-          setStatus('Authentication required');
-          setTimeout(() => !cancelled && setLocation('/auth'), 600);
+        if (!auth.authenticated && localOnly && !hasWorkspace) {
+          await SelectLocalWorkspace();
+          hasWorkspace = Boolean(await GetActiveWorkspace());
         }
+
+        if (cancelled) return;
+
+        const navigation = resolveStartupNavigation({
+          authenticated: auth.authenticated,
+          localOnly,
+          hasWorkspace,
+          username: auth.username,
+        });
+
+        setStatus(navigation.status);
+        scheduleRoute(navigation.route, navigation.delayMs);
       } catch {
-        if (!cancelled) {
-          setStatus('Starting up...');
+        if (cancelled) return;
 
-          setTimeout(() => checkAuth(), 1000);
-        }
+        setStatus('Starting up...');
+        setTimeout(() => {
+          if (!cancelled) {
+            void checkAuth();
+          }
+        }, TIMING.STARTUP_RETRY_MS);
       }
     }
 
-    const timer = setTimeout(checkAuth, 500);
+    const timer = setTimeout(checkAuth, TIMING.STARTUP_INITIAL_DELAY_MS);
 
     return () => {
       cancelled = true;

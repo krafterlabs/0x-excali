@@ -176,10 +176,10 @@
 }
 
 /* ============================================================
-   Excalidraw Theme Overrides
+   Embedded canvas theme overrides
    ============================================================ */
 
-/* Remove Excalidraw welcome screen if it slips through */
+/* Hide third-party welcome screen if it slips through */
 .excalidraw .welcome-screen-decor,
 .excalidraw .welcome-screen-center {
   display: none !important;

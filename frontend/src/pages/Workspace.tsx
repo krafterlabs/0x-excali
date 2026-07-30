@@ -4,6 +4,9 @@ import { FileText, History, LayoutTemplate, Loader2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 import { AppShell } from '@/components/layout/AppShell';
+import type { WorkspacePanelView } from '@/components/layout/Header';
+import { WorkspaceAboutPanel } from '@/components/settings/workspace-about-panel';
+import { WorkspaceSettingsPanel } from '@/components/settings/workspace-settings-panel';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,18 +18,24 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
 import { CanvasView } from '@/pages/CanvasView';
+import { ROUTES, workspaceFilePath } from '@/lib/routes';
+import { withDiagramExtension } from '@/lib/diagram-format';
+import { TIMING } from '@/lib/timing';
+import { bootstrapWorkspace } from '@/lib/workspace-session';
+import type { AuthUser } from '@/types/github';
 
 import { database } from '../../wailsjs/go/models';
 
 interface WorkspaceProps {
   fileId?: string;
+  panel?: WorkspacePanelView;
 }
 
 export interface TreeNode extends database.FileNode {
   children: TreeNode[];
 }
 
-export function Workspace({ fileId }: WorkspaceProps) {
+export function Workspace({ fileId, panel }: WorkspaceProps) {
   const [, setLocation] = useLocation();
   const [workspace, setWorkspace] = useState<database.Workspace | null>(null);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
@@ -34,14 +43,54 @@ export function Workspace({ fileId }: WorkspaceProps) {
     'synced'
   );
   const [dirtyCount, setDirtyCount] = useState(0);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<{
-    username: string;
-    avatar_url: string;
-    email: string;
-  } | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isLocalMode, setIsLocalMode] = useState(false);
+  const [repoSwitcherOpen, setRepoSwitcherOpen] = useState(false);
 
   const hasSyncedOnLoad = useRef(false);
+
+  const reloadWorkspace = useCallback(async () => {
+    const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges } =
+      await import('../../wailsjs/go/workspace/Service');
+
+    const ws = await GetActiveWorkspace();
+    if (!ws) {
+      setLocation(ROUTES.SETUP_WORKSPACE);
+      return;
+    }
+    setWorkspace(ws);
+
+    const allNodes = await loadAllNodes(GetFolderContents);
+    setFileTree(buildTree(allNodes));
+
+    const dirty = await GetDirtyFileCount();
+    setDirtyCount(dirty);
+
+    const pending = await HasPendingLocalChanges();
+    setHasPendingChanges(pending);
+  }, [setLocation]);
+
+  const handleWorkspaceSwitch = useCallback(async () => {
+    hasSyncedOnLoad.current = false;
+    setLocation(ROUTES.WORKSPACE);
+    setLoading(true);
+    try {
+      await reloadWorkspace();
+      setSyncStatus('syncing');
+      const { PullFileTree } = await import('../../wailsjs/go/workspace/Service');
+      await PullFileTree();
+      await reloadWorkspace();
+      setSyncStatus('synced');
+      hasSyncedOnLoad.current = true;
+    } catch (err) {
+      console.error('Workspace switch error:', err);
+      setSyncStatus('error');
+    } finally {
+      setLoading(false);
+    }
+  }, [reloadWorkspace, setLocation]);
 
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewDiagram, setShowNewDiagram] = useState(false);
@@ -51,12 +100,14 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const refreshTree = useCallback(async () => {
     try {
-      const { GetFolderContents, GetDirtyFileCount } =
+      const { GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges } =
         await import('../../wailsjs/go/workspace/Service');
       const allNodes = await loadAllNodes(GetFolderContents);
       setFileTree(buildTree(allNodes));
       const dirty = await GetDirtyFileCount();
       setDirtyCount(dirty);
+      const pending = await HasPendingLocalChanges();
+      setHasPendingChanges(pending);
     } catch (err) {
       console.error('Refresh error:', err);
     }
@@ -67,14 +118,24 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
     async function loadData() {
       try {
-        const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount } =
+        const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges, SelectLocalWorkspace } =
           await import('../../wailsjs/go/workspace/Service');
+        const { IsLocalOnly } = await import('../../wailsjs/go/settings/Service');
 
-        const ws = await GetActiveWorkspace();
-        if (!ws) {
-          setLocation('/setup-workspace');
+        const localOnly = await IsLocalOnly();
+        if (!cancelled) setIsLocalMode(localOnly);
+
+        const bootstrap = await bootstrapWorkspace(localOnly, {
+          GetActiveWorkspace,
+          SelectLocalWorkspace,
+        });
+
+        if (bootstrap.kind === 'redirect') {
+          if (!cancelled) setLocation(bootstrap.route);
           return;
         }
+
+        const ws = bootstrap.workspace;
         if (!cancelled) setWorkspace(ws);
 
         const allNodes = await loadAllNodes(GetFolderContents);
@@ -83,14 +144,21 @@ export function Workspace({ fileId }: WorkspaceProps) {
         const dirty = await GetDirtyFileCount();
         if (!cancelled) setDirtyCount(dirty);
 
+        const pending = await HasPendingLocalChanges();
+        if (!cancelled) setHasPendingChanges(pending);
+
         const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
         const auth = await GetAuthStatus();
-        if (auth?.authenticated && !cancelled) {
-          setAuthUser({
-            username: auth.username,
-            avatar_url: auth.avatar_url,
-            email: auth.email,
-          });
+        if (!cancelled) {
+          setAuthUser(
+            auth?.authenticated
+              ? {
+                  username: auth.username,
+                  avatar_url: auth.avatar_url,
+                  email: auth.email,
+                }
+              : null
+          );
         }
 
         if (!cancelled) setLoading(false);
@@ -124,6 +192,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
         EventsOn('workspace:updated', () => {
           if (!cancelled) refreshTree();
         });
+        EventsOn('workspace:switched', () => {
+          if (!cancelled) void reloadWorkspace();
+        });
       } catch {
         void 0;
       }
@@ -132,7 +203,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
     return () => {
       cancelled = true;
     };
-  }, [refreshTree]);
+  }, [refreshTree, reloadWorkspace]);
 
   const handleForceSync = useCallback(async () => {
     toast.add({
@@ -151,33 +222,61 @@ export function Workspace({ fileId }: WorkspaceProps) {
         title: 'Sync completed',
         description: `Synced to github (${workspace?.name}) is complete.`,
         type: 'success',
-        timeout: 5000,
+        timeout: TIMING.TOAST_DURATION_MS,
       });
     } catch (err) {
       console.error('Sync error:', err);
+      setSyncStatus('error');
       toast.add({
         title: 'Sync failed',
         description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
         type: 'error',
-        timeout: 5000,
+        timeout: TIMING.TOAST_DURATION_MS,
       });
     }
   }, [refreshTree, workspace?.name]);
 
-  useEffect(() => {
-    if (workspace && !loading && !hasSyncedOnLoad.current) {
-      hasSyncedOnLoad.current = true;
-      handleForceSync();
+  const handleStartupSync = useCallback(async () => {
+    setSyncStatus('syncing');
+    try {
+      const { HasPendingLocalChanges, PullFileTree, SyncFileTree } =
+        await import('../../wailsjs/go/workspace/Service');
+      const hasLocalChanges = await HasPendingLocalChanges();
+      if (hasLocalChanges) {
+        await SyncFileTree();
+      } else {
+        await PullFileTree();
+      }
+      await refreshTree();
+      setSyncStatus('synced');
+    } catch (err) {
+      console.error('Startup sync error:', err);
+      setSyncStatus('error');
     }
-  }, [workspace, loading, handleForceSync]);
+  }, [refreshTree]);
+
+  useEffect(() => {
+    if (workspace && !loading && !hasSyncedOnLoad.current && !isLocalMode) {
+      hasSyncedOnLoad.current = true;
+      handleStartupSync();
+    }
+    if (workspace && !loading && isLocalMode) {
+      hasSyncedOnLoad.current = true;
+      setSyncStatus('offline');
+    }
+  }, [workspace, loading, handleStartupSync, isLocalMode]);
 
   const handleLogout = useCallback(async () => {
     try {
-      const { Logout } = await import('../../wailsjs/go/github/AuthService');
-      await Logout();
-      setLocation('/auth');
+      const { IsLocalOnly } = await import('../../wailsjs/go/settings/Service');
+      const localOnly = await IsLocalOnly();
+      if (!localOnly) {
+        const { Logout } = await import('../../wailsjs/go/github/AuthService');
+        await Logout();
+      }
+      setLocation(ROUTES.AUTH);
     } catch {
-      setLocation('/auth');
+      setLocation(ROUTES.AUTH);
     }
   }, [setLocation]);
 
@@ -201,7 +300,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
         title: 'Error',
         description: err instanceof Error ? err.message : 'Failed to create folder',
         type: 'error',
-        timeout: 5000,
+        timeout: TIMING.TOAST_DURATION_MS,
       });
     }
     setCreating(false);
@@ -217,16 +316,16 @@ export function Workspace({ fileId }: WorkspaceProps) {
       setShowNewDiagram(false);
 
       const path = newItemParent
-        ? `${newItemParent}/${newItemName.trim()}.excalidraw`
-        : `${newItemName.trim()}.excalidraw`;
-      setLocation(`/workspace/${encodeURIComponent(path)}`);
+        ? `${newItemParent}/${withDiagramExtension(newItemName.trim())}`
+        : withDiagramExtension(newItemName.trim());
+      setLocation(workspaceFilePath(path));
     } catch (err) {
       console.error('Create diagram error:', err);
       toast.add({
         title: 'Error',
         description: err instanceof Error ? err.message : 'Failed to create diagram',
         type: 'error',
-        timeout: 5000,
+        timeout: TIMING.TOAST_DURATION_MS,
       });
     }
     setCreating(false);
@@ -238,7 +337,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
       await DeleteItem(path);
       await refreshTree();
       if (fileId && decodeURIComponent(fileId) === path) {
-        setLocation('/workspace');
+        setLocation(ROUTES.WORKSPACE);
       }
     } catch (err) {
       console.error('Delete error:', err);
@@ -246,7 +345,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
         title: 'Error',
         description: err instanceof Error ? err.message : 'Failed to delete item',
         type: 'error',
-        timeout: 5000,
+        timeout: TIMING.TOAST_DURATION_MS,
       });
     }
   };
@@ -261,10 +360,12 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const headerProps = {
     workspace,
-    activeFile: fileId ? decodeURIComponent(fileId) : undefined,
+    activeFile: panel ? undefined : fileId ? decodeURIComponent(fileId) : undefined,
+    panelView: panel,
     syncStatus,
     dirtyCount,
     onSync: handleForceSync,
+    showSync: !isLocalMode,
   };
 
   const sidebarProps = {
@@ -272,8 +373,11 @@ export function Workspace({ fileId }: WorkspaceProps) {
     authUser,
     onLogout: handleLogout,
     onSync: handleForceSync,
+    dirtyCount,
+    hasPendingChanges,
+    isLocalMode,
     fileTree,
-    onFileClick: (path: string) => setLocation(`/workspace/${encodeURIComponent(path)}`),
+    onFileClick: (path: string) => setLocation(workspaceFilePath(path)),
     onCreateFolder: (parentPath?: string) => {
       setNewItemParent(parentPath || '');
       setNewItemName('');
@@ -285,11 +389,29 @@ export function Workspace({ fileId }: WorkspaceProps) {
       setShowNewDiagram(true);
     },
     onDelete: handleDelete,
+    onWorkspaceSwitch: handleWorkspaceSwitch,
+    repoSwitcherOpen,
+    onRepoSwitcherOpenChange: setRepoSwitcherOpen,
   };
 
   return (
     <AppShell headerProps={headerProps} sidebarProps={sidebarProps}>
-      {fileId ? (
+      {panel === 'settings' ? (
+        <WorkspaceSettingsPanel
+          authUser={authUser}
+          isLocalMode={isLocalMode}
+          workspaceName={workspace?.full_name}
+          onAuthUpdated={setAuthUser}
+          onLocalModeChanged={(localOnly) => {
+            setIsLocalMode(localOnly);
+            setSyncStatus(localOnly ? 'offline' : 'synced');
+          }}
+          onRepositoryLinked={reloadWorkspace}
+          onOpenRepoSwitcher={() => setRepoSwitcherOpen(true)}
+        />
+      ) : panel === 'about' ? (
+        <WorkspaceAboutPanel />
+      ) : fileId ? (
         <CanvasView id={fileId} key={fileId} />
       ) : (
         <div className="flex flex-col items-center justify-center h-full w-full text-center px-4">
@@ -298,17 +420,21 @@ export function Workspace({ fileId }: WorkspaceProps) {
           </div>
           <h2 className="text-xl font-semibold mb-2">Welcome to {workspace?.name}</h2>
           <p className="text-sm text-muted-foreground max-w-md mb-8">
-            Select a diagram from the sidebar to start editing, or create a new one to get started.
+            {isLocalMode
+              ? 'Your diagrams are saved on this device. Connect GitHub in Settings to sync to a repository.'
+              : 'Select a diagram from the sidebar to start editing, or create a new one to get started.'}
           </p>
           <div className="flex gap-4">
             <Button onClick={() => setShowNewDiagram(true)} className="gap-2">
               <FileText className="h-4 w-4" />
               New Diagram
             </Button>
-            <Button variant="secondary" onClick={handleForceSync} className="gap-2">
-              <History className="h-4 w-4" />
-              Sync Changes
-            </Button>
+            {!isLocalMode && (
+              <Button variant="secondary" onClick={() => void handleForceSync()} className="gap-2">
+                <History className="h-4 w-4" />
+                Sync Changes
+              </Button>
+            )}
           </div>
         </div>
       )}

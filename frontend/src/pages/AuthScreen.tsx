@@ -1,100 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
-
-import { CheckCircle2, Copy, ExternalLink, Loader2, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useLocation } from 'wouter';
 
-import { Badge } from '@/components/ui/badge';
+import { GitHubDeviceFlow } from '@/components/github/github-device-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ROUTES } from '@/lib/routes';
 
 export function AuthScreen() {
   const [, setLocation] = useLocation();
-  const [userCode, setUserCode] = useState('');
-  const [verificationURI, setVerificationURI] = useState('');
-  const [isPolling, setIsPolling] = useState(false);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [isStarting, setIsStarting] = useState(false);
-  const [requestPrivateAccess, setRequestPrivateAccess] = useState(false);
-  const [flowStarted, setFlowStarted] = useState(false);
 
-  const startFlow = useCallback(async () => {
-    setIsStarting(true);
-    setError('');
-    setFlowStarted(true);
-
+  const handleSkip = async () => {
     try {
-      const { StartDeviceFlow } = await import('../../wailsjs/go/github/AuthService');
-
-      const result = await StartDeviceFlow(requestPrivateAccess);
-
-      setUserCode(result.user_code);
-      setVerificationURI(result.verification_uri);
-      setIsStarting(false);
-
-      const { PollForToken } = await import('../../wailsjs/go/github/AuthService');
-      PollForToken(result.device_code, result.interval, result.expires_in);
-      setIsPolling(true);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'GitHub authorization failed. Please try again.'
-      );
-      setIsStarting(false);
-    }
-  }, [requestPrivateAccess]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function setupListeners() {
-      try {
-        const { EventsOn } = await import('../../wailsjs/runtime/runtime');
-
-        EventsOn('auth:complete', () => {
-          if (!cancelled) {
-            setIsPolling(false);
-
-            setTimeout(() => {
-              if (!cancelled) setLocation('/setup-workspace');
-            }, 1000);
-          }
-        });
-
-        EventsOn('auth:error', (errorMsg: string) => {
-          if (!cancelled) {
-            setIsPolling(false);
-            setError(errorMsg);
-          }
-        });
-      } catch {
-        void 0;
-      }
-    }
-
-    setupListeners();
-    return () => {
-      cancelled = true;
-    };
-  }, [setLocation]);
-
-  const handleCopyCode = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(userCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const { EnableLocalMode } = await import('../../wailsjs/go/settings/Service');
+      const { SelectLocalWorkspace } = await import('../../wailsjs/go/workspace/Service');
+      await EnableLocalMode();
+      await SelectLocalWorkspace();
+      setLocation(ROUTES.WORKSPACE);
     } catch {
       void 0;
     }
-  }, [userCode]);
-
-  const handleOpenGitHub = useCallback(async () => {
-    try {
-      const { OpenVerificationURL } = await import('../../wailsjs/go/github/AuthService');
-      OpenVerificationURL(verificationURI);
-    } catch {
-      window.open(verificationURI, '_blank');
-    }
-  }, [verificationURI]);
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6">
@@ -111,135 +36,21 @@ export function AuthScreen() {
           </p>
         </div>
 
-        {error && (
-          <Card className="mb-6 border-destructive/50 bg-destructive/5">
-            <CardContent className="p-4">
-              <p className="text-sm text-destructive">{error}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => {
-                  setError('');
-                  setFlowStarted(false);
-                }}
-              >
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {!flowStarted && !error && (
-          <Card className="border-border/50 bg-card/50 shadow-xl">
-            <CardContent className="p-6 flex flex-col">
-              <div className="flex flex-col gap-2">
-                <Button size="lg" className="w-full text-base font-semibold" onClick={startFlow}>
-                  Continue with GitHub
-                </Button>
-                <p className="text-center text-xs text-muted-foreground mt-1 mb-3">
-                  New accounts are created automatically after GitHub authorization.
-                </p>
-              </div>
-
-              <div className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-background/50 border border-transparent hover:border-border/50">
-                <div className="flex h-5 items-center mt-0.5">
-                  <input
-                    id="private-access"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
-                    checked={requestPrivateAccess}
-                    onChange={(e) => setRequestPrivateAccess(e.target.checked)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    htmlFor="private-access"
-                    className="text-sm font-medium leading-none cursor-pointer text-foreground/90 select-none"
-                  >
-                    Include private repositories
-                  </label>
-                  <p className="text-xs text-muted-foreground leading-tight">
-                    You can leave this off and enable it later from Settings.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {isStarting && !error && (
-          <Card className="border-border/50 bg-card/50">
-            <CardContent className="flex flex-col items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="mt-4 text-sm text-muted-foreground">Connecting to GitHub...</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {userCode && !error && (
-          <div className="space-y-4">
-            <Card className="border-border/50 bg-card/50 overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="secondary" className="text-xs">
-                    Step 1
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">Copy this code</span>
-                </div>
-
-                <button
-                  onClick={handleCopyCode}
-                  className="group w-full rounded-lg border border-border/50 bg-background/80 p-4 text-center transition-all hover:border-primary/30 hover:bg-background"
-                >
-                  <code className="text-3xl font-mono font-bold tracking-[0.3em] text-foreground">
-                    {userCode}
-                  </code>
-                  <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                    {copied ? (
-                      <>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        <span>Click to copy</span>
-                      </>
-                    )}
-                  </div>
-                </button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="secondary" className="text-xs">
-                    Step 2
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">Enter it on GitHub</span>
-                </div>
-
-                <Button onClick={handleOpenGitHub} className="w-full gap-2" size="lg">
-                  <ExternalLink className="h-4 w-4" />
-                  Open GitHub Device Activation
-                </Button>
-              </CardContent>
-            </Card>
-
-            {isPolling && (
-              <div className="flex items-center justify-center gap-2 py-3">
-                <div className="flex gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:0ms]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:150ms]" />
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-bounce [animation-delay:300ms]" />
-                </div>
-                <span className="text-xs text-muted-foreground">Waiting for authorization...</span>
-              </div>
-            )}
-          </div>
-        )}
+        <Card className="border-border/50 bg-card/50 shadow-xl">
+          <CardContent className="flex flex-col gap-4 p-6">
+            <GitHubDeviceFlow
+              onComplete={() => setLocation(ROUTES.SETUP_WORKSPACE)}
+              showPrivateReposOption
+            />
+            <Button size="lg" variant="outline" className="w-full text-base" onClick={handleSkip}>
+              Continue without GitHub
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Use offline mode to keep diagrams on this device. You can connect GitHub later in
+              Settings.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

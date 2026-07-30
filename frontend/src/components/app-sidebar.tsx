@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import {
+  ChevronDown,
   ChevronRight,
   FileText,
   Folder,
@@ -38,20 +39,29 @@ import {
 } from '@/components/ui/sidebar';
 import { SidebarFooter } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { isDiagramFile } from '@/lib/diagram-format';
+import { ROUTES, workspaceFilePathFromLocation } from '@/lib/routes';
 
 import { database } from '../../wailsjs/go/models';
 import { NavUser } from './nav-user';
+import { WorkspaceSwitcherDialog } from './workspace-switcher-dialog';
 
 export interface SidebarProps {
   workspace: database.Workspace | null;
   authUser: { username: string; avatar_url: string; email: string } | null;
   onLogout: () => void;
   onSync: () => void | Promise<void>;
+  dirtyCount: number;
+  hasPendingChanges: boolean;
+  isLocalMode: boolean;
   fileTree: database.FileNode[];
   onFileClick: (path: string) => void;
   onCreateFolder: (parentPath?: string) => void;
   onCreateDiagram: (parentPath?: string) => void;
   onDelete: (path: string) => void;
+  onWorkspaceSwitch: () => Promise<void>;
+  repoSwitcherOpen?: boolean;
+  onRepoSwitcherOpenChange?: (open: boolean) => void;
 }
 
 export function AppSidebar({
@@ -59,24 +69,50 @@ export function AppSidebar({
   authUser,
   onLogout,
   onSync,
+  dirtyCount,
+  hasPendingChanges,
+  isLocalMode,
   fileTree,
   onFileClick,
   onCreateFolder,
   onCreateDiagram,
   onDelete,
+  onWorkspaceSwitch,
+  repoSwitcherOpen,
+  onRepoSwitcherOpenChange,
   ...props
 }: SidebarProps & React.ComponentProps<typeof Sidebar>) {
   const [location] = useLocation();
-  const selectedPath = location.startsWith('/workspace/')
-    ? decodeURIComponent(location.slice(11))
-    : '';
+  const [internalSwitcherOpen, setInternalSwitcherOpen] = React.useState(false);
+  const switcherOpen = repoSwitcherOpen ?? internalSwitcherOpen;
+  const setSwitcherOpen = onRepoSwitcherOpenChange ?? setInternalSwitcherOpen;
+  const selectedPath = workspaceFilePathFromLocation(location);
 
   return (
     <Sidebar collapsible="icon" {...props}>
+      {!isLocalMode && (
+        <WorkspaceSwitcherDialog
+          open={switcherOpen}
+          onOpenChange={setSwitcherOpen}
+          activeRepoId={workspace?.repo_id}
+          activeRepoName={workspace?.full_name}
+          hasCurrentPendingChanges={hasPendingChanges || dirtyCount > 0}
+          onSwitch={async (repo) => {
+            const { SwitchWorkspace } = await import('../../wailsjs/go/workspace/Service');
+            await SwitchWorkspace(repo);
+            await onWorkspaceSwitch();
+          }}
+        />
+      )}
       <SidebarHeader className="space-y-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-transparent cursor-default">
+            <SidebarMenuButton
+              size="lg"
+              className={isLocalMode ? 'hover:bg-transparent cursor-default' : 'hover:bg-accent/60 cursor-pointer'}
+              onClick={isLocalMode ? undefined : () => setSwitcherOpen(true)}
+              tooltip={isLocalMode ? undefined : 'Switch repository'}
+            >
               <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary/10 text-primary shadow-sm shrink-0">
                 <svg
                   viewBox="0 0 24 24"
@@ -102,6 +138,9 @@ export function AppSidebar({
                   </div>
                 )}
               </div>
+              {!isLocalMode && (
+                <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="px-2 group-data-[collapsible=icon]:px-0">
@@ -136,7 +175,14 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser authUser={authUser} onLogout={onLogout} onSync={onSync} />
+        <NavUser
+          authUser={authUser}
+          onLogout={onLogout}
+          onSync={onSync}
+          dirtyCount={dirtyCount}
+          hasPendingChanges={hasPendingChanges}
+          isLocalMode={isLocalMode}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
@@ -205,15 +251,15 @@ function TreeItem({
   onDelete,
 }: TreeProps & { node: TreeNode }) {
   const isFolder = node.type === 'folder' || node.type === 'tree';
-  const isExcalidraw = node.name.endsWith('.excalidraw');
+  const isDiagram = isDiagramFile(node.name);
   const isSelected = selectedPath === node.path;
 
   const [unsupported, setUnsupported] = React.useState(false);
 
   const handleFileClick = () => {
-    if (isExcalidraw && onFileClick) {
+    if (isDiagram && onFileClick) {
       onFileClick(node.path);
-    } else if (!isExcalidraw) {
+    } else if (!isDiagram) {
       setUnsupported(true);
       setTimeout(() => setUnsupported(false), 2000);
     }
@@ -289,7 +335,7 @@ function TreeItem({
         style={{ paddingLeft: `${paddingLeft + 16}px` }}
       >
         <FileText
-          className={cn(isExcalidraw ? 'text-violet-400' : 'text-muted-foreground opacity-50')}
+          className={cn(isDiagram ? 'text-violet-400' : 'text-muted-foreground opacity-50')}
         />
         <span className="truncate flex-1">{node.name}</span>
         {unsupported && (

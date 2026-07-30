@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ChevronsUpDownIcon, Loader2, LogOutIcon } from 'lucide-react';
+import { ChevronsUpDownIcon, CloudUpload, Loader2, LogOutIcon } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -29,25 +29,35 @@ export function NavUser({
   authUser,
   onLogout,
   onSync,
+  dirtyCount,
+  hasPendingChanges,
 }: {
   authUser: { username: string; avatar_url: string; email: string } | null;
   onLogout: () => void;
   onSync: () => void | Promise<void>;
+  dirtyCount: number;
+  hasPendingChanges: boolean;
 }) {
   const { isMobile } = useSidebar();
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  const handleConfirmLogout = async () => {
-    setLoggingOut(true);
+  const hasUnsyncedChanges = hasPendingChanges || dirtyCount > 0;
+
+  const handleLogout = () => {
+    setConfirmLogout(false);
+    onLogout();
+  };
+
+  const handleSyncAndStay = async () => {
+    setSyncing(true);
     try {
       await onSync();
+      setConfirmLogout(false);
     } catch {
       void 0;
     }
-    setLoggingOut(false);
-    setConfirmLogout(false);
-    onLogout();
+    setSyncing(false);
   };
 
   const username = authUser?.username || 'GitHub User';
@@ -92,23 +102,38 @@ export function NavUser({
 
       <Dialog
         open={confirmLogout}
-        onOpenChange={(o: boolean) => !loggingOut && setConfirmLogout(o)}
+        onOpenChange={(o: boolean) => !syncing && setConfirmLogout(o)}
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Log out?</DialogTitle>
             <DialogDescription>
-              Your changes will be synced to GitHub before you're logged out.
+              {hasUnsyncedChanges
+                ? dirtyCount > 0
+                  ? `You have ${dirtyCount} unsynced change${dirtyCount === 1 ? '' : 's'}. Logging out without syncing may leave those changes only on this device.`
+                  : 'You have local changes that have not been synced to GitHub. Logging out without syncing may leave those changes only on this device.'
+                : 'You will be signed out of your GitHub account in this app.'}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmLogout(false)} disabled={loggingOut}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button variant="outline" onClick={() => setConfirmLogout(false)} disabled={syncing}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmLogout} disabled={loggingOut}>
-              {loggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loggingOut ? 'Syncing…' : 'Sync & log out'}
-            </Button>
+            <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+              <Button variant="destructive" onClick={handleLogout} disabled={syncing}>
+                Log out
+              </Button>
+              {hasUnsyncedChanges && (
+                <Button onClick={handleSyncAndStay} disabled={syncing}>
+                  {syncing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CloudUpload className="mr-2 h-4 w-4" />
+                  )}
+                  {syncing ? 'Syncing…' : 'Sync changes'}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

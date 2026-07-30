@@ -1,8 +1,8 @@
 # Third-Party Notices
 
-0x-excali includes third-party open-source software. Attributions are listed below.
+0x-excali is an independent desktop application built using the open-source Excalidraw package (`@excalidraw/excalidraw`). This product includes software from Excalidraw. Attributions are listed below.
 
-This product is not affiliated with, endorsed by, or sponsored by any third-party project listed herein.
+0x-excali is not affiliated with, endorsed by, or sponsored by Excalidraw.
 
 Excalidraw
 Copyright (c) 2020 Excalidraw

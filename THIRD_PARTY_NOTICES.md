@@ -1,39 +1,15 @@
 # Third-Party Notices
 
-0x-excali is an independent desktop application built using the open-source Excalidraw package (`@excalidraw/excalidraw`). This product includes software from Excalidraw. Attributions are listed below.
+This project includes open-source software from third parties. The following notices are provided in accordance with their respective license requirements.
 
-0x-excali is not affiliated with, endorsed by, or sponsored by Excalidraw.
+## Excalidraw
 
-Excalidraw
-Copyright (c) 2020 Excalidraw
-Licensed under the MIT License.
-Source: https://github.com/excalidraw/excalidraw
-Package: https://www.npmjs.com/package/@excalidraw/excalidraw
+This application uses [Excalidraw](https://excalidraw.com/) for diagram editing. Excalidraw is licensed under the MIT License. See the [Excalidraw repository](https://github.com/excalidraw/excalidraw) for source and license details.
 
-## MIT License (Excalidraw)
+## @excalidraw/excalidraw
 
-MIT License
+The diagram editor is powered by the `@excalidraw/excalidraw` package. See the package's `LICENSE` file in `node_modules/@excalidraw/excalidraw` for the full MIT License text.
 
-Copyright (c) 2020 Excalidraw
+## Other dependencies
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-## Direct Dependencies
-
-This project includes third-party open-source dependencies managed through Go modules (`go.mod`) and pnpm (`package.json`). Please refer to the respective package managers for their individual licenses.
+Additional third-party libraries are listed in `frontend/package.json` and `go.mod`. Refer to each package's license file in `node_modules` or the Go module cache for their respective terms.

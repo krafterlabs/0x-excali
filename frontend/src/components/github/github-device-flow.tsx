@@ -4,6 +4,7 @@ import { CheckCircle2, Copy, ExternalLink, Loader2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { openExternalURL } from '@/lib/open-external-url';
 import { TIMING } from '@/lib/timing';
 
 interface GitHubDeviceFlowProps {
@@ -121,7 +122,7 @@ export function GitHubDeviceFlow({
       const { OpenVerificationURL } = await import('../../../wailsjs/go/github/AuthService');
       OpenVerificationURL(verificationURI);
     } catch {
-      window.open(verificationURI, '_blank');
+      void openExternalURL(verificationURI);
     }
   }, [verificationURI]);
 

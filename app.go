@@ -9,6 +9,8 @@ import (
 	"0x-excali/internal/settings"
 	"0x-excali/internal/sync"
 	"0x-excali/internal/workspace"
+
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App is the main application struct. It holds references to all services
@@ -87,4 +89,9 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 
 	log.Println("app: shutdown complete")
+}
+
+// OpenExternalURL opens an http(s) URL in the system default browser.
+func (a *App) OpenExternalURL(url string) {
+	wailsRuntime.BrowserOpenURL(a.ctx, url)
 }

@@ -1,0 +1,28 @@
+name: Publish Homebrew Cask
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  notify-homebrew-tap:
+    name: Trigger homebrew-tap update
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch update to krafterlabs/homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::HOMEBREW_TAP_TOKEN secret is required to update krafterlabs/homebrew-tap"
+            exit 1
+          fi
+          gh api repos/krafterlabs/homebrew-tap/dispatches \
+            --method POST \
+            -f event_type=release-published \
+            -f "client_payload[version]=${RELEASE_TAG}"

@@ -44,6 +44,53 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const hasSyncedOnLoad = useRef(false);
 
+  const reloadWorkspace = useCallback(async () => {
+    const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges } =
+      await import('../../wailsjs/go/workspace/Service');
+
+    const ws = await GetActiveWorkspace();
+    if (!ws) {
+      setLocation('/setup-workspace');
+      return;
+    }
+    setWorkspace(ws);
+
+    const allNodes = await loadAllNodes(GetFolderContents);
+    setFileTree(buildTree(allNodes));
+
+    const dirty = await GetDirtyFileCount();
+    setDirtyCount(dirty);
+
+    const pending = await HasPendingLocalChanges();
+    setHasPendingChanges(pending);
+  }, [setLocation]);
+
+  const handleWorkspaceSwitch = useCallback(async () => {
+    hasSyncedOnLoad.current = false;
+    setLocation('/workspace');
+    setLoading(true);
+    try {
+      await reloadWorkspace();
+      setSyncStatus('syncing');
+      const { HasPendingLocalChanges, PullFileTree, SyncFileTree } =
+        await import('../../wailsjs/go/workspace/Service');
+      const hasLocalChanges = await HasPendingLocalChanges();
+      if (hasLocalChanges) {
+        await SyncFileTree();
+      } else {
+        await PullFileTree();
+      }
+      await reloadWorkspace();
+      setSyncStatus('synced');
+      hasSyncedOnLoad.current = true;
+    } catch (err) {
+      console.error('Workspace switch error:', err);
+      setSyncStatus('error');
+    } finally {
+      setLoading(false);
+    }
+  }, [reloadWorkspace, setLocation]);
+
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewDiagram, setShowNewDiagram] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -130,6 +177,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
         EventsOn('workspace:updated', () => {
           if (!cancelled) refreshTree();
         });
+        EventsOn('workspace:switched', () => {
+          if (!cancelled) void reloadWorkspace();
+        });
       } catch {
         void 0;
       }
@@ -138,7 +188,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
     return () => {
       cancelled = true;
     };
-  }, [refreshTree]);
+  }, [refreshTree, reloadWorkspace]);
 
   const handleForceSync = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -321,6 +371,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
       setShowNewDiagram(true);
     },
     onDelete: handleDelete,
+    onWorkspaceSwitch: handleWorkspaceSwitch,
   };
 
   return (

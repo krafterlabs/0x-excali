@@ -15,26 +15,44 @@ func (db *DB) EnqueueSync(ctx context.Context, workspaceID int64, operation, fil
 	return err
 }
 
-// CountPendingSyncItems returns how many sync operations are waiting to be pushed.
-func (db *DB) CountPendingSyncItems(ctx context.Context) (int, error) {
+// CountPendingSyncItems returns how many sync operations are waiting to be pushed
+// for the given workspace.
+func (db *DB) CountPendingSyncItems(ctx context.Context, workspaceID int64) (int, error) {
 	var count int
 	err := db.conn.QueryRowContext(ctx, `
 		SELECT COUNT(*)
 		FROM sync_queue
-		WHERE status IN ('pending', 'failed') AND retry_count < 3
-	`).Scan(&count)
+		WHERE workspace_id = ? AND status IN ('pending', 'failed') AND retry_count < 3
+	`, workspaceID).Scan(&count)
 	return count, err
 }
 
-// GetPendingSyncItems returns all pending sync operations, oldest first.
-func (db *DB) GetPendingSyncItems(ctx context.Context, limit int) ([]SyncQueueItem, error) {
+// WorkspaceHasPendingChanges reports whether a workspace has dirty files or queued sync ops.
+func (db *DB) WorkspaceHasPendingChanges(ctx context.Context, workspaceID int64) (bool, error) {
+	pending, err := db.CountPendingSyncItems(ctx, workspaceID)
+	if err != nil {
+		return false, err
+	}
+	if pending > 0 {
+		return true, nil
+	}
+
+	dirty, err := db.GetDirtyFiles(ctx, workspaceID)
+	if err != nil {
+		return false, err
+	}
+	return len(dirty) > 0, nil
+}
+
+// GetPendingSyncItems returns pending sync operations for a workspace, oldest first.
+func (db *DB) GetPendingSyncItems(ctx context.Context, workspaceID int64, limit int) ([]SyncQueueItem, error) {
 	rows, err := db.conn.QueryContext(ctx, `
 		SELECT id, workspace_id, operation, file_path, payload, status, retry_count, error_msg, created_at, COALESCE(processed_at, '')
 		FROM sync_queue
-		WHERE status IN ('pending', 'failed') AND retry_count < 3
+		WHERE workspace_id = ? AND status IN ('pending', 'failed') AND retry_count < 3
 		ORDER BY created_at ASC
 		LIMIT ?
-	`, limit)
+	`, workspaceID, limit)
 	if err != nil {
 		return nil, err
 	}

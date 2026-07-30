@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { ChevronsUpDownIcon, CloudUpload, Loader2, LogOutIcon, SettingsIcon } from 'lucide-react';
+import { ChevronsUpDownIcon, CloudUpload, InfoIcon, Loader2, LogOutIcon, SettingsIcon } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -98,11 +98,18 @@ export function NavUser({
               sideOffset={4}
             >
               <DropdownMenuItem
-                onClick={() => setLocation(ROUTES.SETTINGS)}
+                onClick={() => setLocation(ROUTES.WORKSPACE_SETTINGS)}
                 className="cursor-pointer"
               >
                 <SettingsIcon className="mr-2 h-4 w-4" />
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setLocation(ROUTES.WORKSPACE_ABOUT)}
+                className="cursor-pointer"
+              >
+                <InfoIcon className="mr-2 h-4 w-4" />
+                About
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

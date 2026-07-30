@@ -16,18 +16,27 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 import { database } from '../../../wailsjs/go/models';
 
+export type WorkspacePanelView = 'settings' | 'about';
+
 export interface HeaderProps {
   workspace: database.Workspace | null;
   activeFile?: string;
+  panelView?: WorkspacePanelView;
   syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
   dirtyCount: number;
   onSync: () => void | Promise<void>;
   showSync?: boolean;
 }
 
+const PANEL_TITLES: Record<WorkspacePanelView, string> = {
+  settings: 'Settings',
+  about: 'About',
+};
+
 export function Header({
   workspace,
   activeFile,
+  panelView,
   syncStatus,
   dirtyCount,
   onSync,
@@ -42,21 +51,29 @@ export function Header({
 
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                {activeFile ? (
-                  <BreadcrumbLink render={<Link href="/workspace" />}>
-                    {workspace?.name.split('/')[1] || 'Workspace'}
-                  </BreadcrumbLink>
-                ) : (
-                  <BreadcrumbPage>{workspace?.name.split('/')[1] || 'Workspace'}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-              {activeFile && (
+              {panelView ? (
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{PANEL_TITLES[panelView]}</BreadcrumbPage>
+                </BreadcrumbItem>
+              ) : (
                 <>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>{activeFile.split('/').pop()}</BreadcrumbPage>
+                  <BreadcrumbItem className="hidden md:block">
+                    {activeFile ? (
+                      <BreadcrumbLink render={<Link href="/workspace" />}>
+                        {workspace?.name.split('/')[1] || 'Workspace'}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{workspace?.name.split('/')[1] || 'Workspace'}</BreadcrumbPage>
+                    )}
                   </BreadcrumbItem>
+                  {activeFile && (
+                    <>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{activeFile.split('/').pop()}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                 </>
               )}
             </BreadcrumbList>

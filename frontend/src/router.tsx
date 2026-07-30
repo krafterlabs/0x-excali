@@ -2,10 +2,9 @@ import { useEffect } from 'react';
 
 import { Route, Switch, useLocation } from 'wouter';
 
-import { ROUTES } from '@/lib/routes';
+import { ROUTES, LEGACY_SETTINGS_PATH } from '@/lib/routes';
 import { AuthScreen } from '@/pages/AuthScreen';
 import { LoadingScreen } from '@/pages/LoadingScreen';
-import { Settings } from '@/pages/Settings';
 import { Workspace } from '@/pages/Workspace';
 import { WorkspaceSetup } from '@/pages/WorkspaceSetup';
 
@@ -17,6 +16,14 @@ function RedirectToLoading() {
   return null;
 }
 
+function RedirectLegacySettings() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(ROUTES.WORKSPACE_SETTINGS);
+  }, [setLocation]);
+  return null;
+}
+
 export function AppRouter() {
   return (
     <Switch>
@@ -24,8 +31,14 @@ export function AppRouter() {
       <Route path={ROUTES.LOADING} component={LoadingScreen} />
       <Route path={ROUTES.AUTH} component={AuthScreen} />
       <Route path={ROUTES.SETUP_WORKSPACE} component={WorkspaceSetup} />
-      <Route path={ROUTES.SETTINGS} component={Settings} />
+      <Route path={LEGACY_SETTINGS_PATH} component={RedirectLegacySettings} />
 
+      <Route path={ROUTES.WORKSPACE_SETTINGS}>
+        <Workspace panel="settings" />
+      </Route>
+      <Route path={ROUTES.WORKSPACE_ABOUT}>
+        <Workspace panel="about" />
+      </Route>
       <Route path={ROUTES.WORKSPACE}>
         <Workspace />
       </Route>

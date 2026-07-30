@@ -173,8 +173,12 @@ export function GitHubDeviceFlow({
             </div>
           </div>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={startFlow} className="gap-2">
+        <div className={embedded ? 'flex flex-wrap gap-2' : 'flex flex-col gap-2'}>
+          <Button
+            onClick={startFlow}
+            size="lg"
+            className={embedded ? 'gap-2' : 'w-full text-base'}
+          >
             Continue with GitHub
           </Button>
           {onCancel && (

@@ -15,6 +15,17 @@ func (db *DB) EnqueueSync(ctx context.Context, workspaceID int64, operation, fil
 	return err
 }
 
+// CountPendingSyncItems returns how many sync operations are waiting to be pushed.
+func (db *DB) CountPendingSyncItems(ctx context.Context) (int, error) {
+	var count int
+	err := db.conn.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM sync_queue
+		WHERE status IN ('pending', 'failed') AND retry_count < 3
+	`).Scan(&count)
+	return count, err
+}
+
 // GetPendingSyncItems returns all pending sync operations, oldest first.
 func (db *DB) GetPendingSyncItems(ctx context.Context, limit int) ([]SyncQueueItem, error) {
 	rows, err := db.conn.QueryContext(ctx, `

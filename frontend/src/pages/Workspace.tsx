@@ -34,6 +34,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
     'synced'
   );
   const [dirtyCount, setDirtyCount] = useState(0);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState<{
     username: string;
@@ -51,12 +52,14 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const refreshTree = useCallback(async () => {
     try {
-      const { GetFolderContents, GetDirtyFileCount } =
+      const { GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges } =
         await import('../../wailsjs/go/workspace/Service');
       const allNodes = await loadAllNodes(GetFolderContents);
       setFileTree(buildTree(allNodes));
       const dirty = await GetDirtyFileCount();
       setDirtyCount(dirty);
+      const pending = await HasPendingLocalChanges();
+      setHasPendingChanges(pending);
     } catch (err) {
       console.error('Refresh error:', err);
     }
@@ -67,7 +70,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
     async function loadData() {
       try {
-        const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount } =
+        const { GetActiveWorkspace, GetFolderContents, GetDirtyFileCount, HasPendingLocalChanges } =
           await import('../../wailsjs/go/workspace/Service');
 
         const ws = await GetActiveWorkspace();
@@ -82,6 +85,9 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
         const dirty = await GetDirtyFileCount();
         if (!cancelled) setDirtyCount(dirty);
+
+        const pending = await HasPendingLocalChanges();
+        if (!cancelled) setHasPendingChanges(pending);
 
         const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
         const auth = await GetAuthStatus();
@@ -134,42 +140,70 @@ export function Workspace({ fileId }: WorkspaceProps) {
     };
   }, [refreshTree]);
 
-  const handleForceSync = useCallback(async () => {
-    toast.add({
-      title: 'Started syncing',
-      description: 'Sync in progress...',
-      type: 'info',
-      timeout: 3000,
-    });
+  const handleForceSync = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        toast.add({
+          title: 'Started syncing',
+          description: 'Sync in progress...',
+          type: 'info',
+          timeout: 3000,
+        });
+      }
+      setSyncStatus('syncing');
+      try {
+        const { SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
+        await SyncFileTree();
+        await refreshTree();
+        setSyncStatus('synced');
+        if (!silent) {
+          toast.add({
+            title: 'Sync completed',
+            description: `Synced to github (${workspace?.name}) is complete.`,
+            type: 'success',
+            timeout: 5000,
+          });
+        }
+      } catch (err) {
+        console.error('Sync error:', err);
+        setSyncStatus('error');
+        toast.add({
+          title: 'Sync failed',
+          description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
+          type: 'error',
+          timeout: 5000,
+        });
+      }
+    },
+    [refreshTree, workspace?.name]
+  );
+
+  const handleStartupSync = useCallback(async () => {
     setSyncStatus('syncing');
     try {
-      const { SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
-      await SyncFileTree();
+      const { HasPendingLocalChanges, PullFileTree, SyncFileTree } =
+        await import('../../wailsjs/go/workspace/Service');
+      const hasLocalChanges = await HasPendingLocalChanges();
+      if (hasLocalChanges) {
+        await SyncFileTree();
+      } else {
+        await PullFileTree();
+      }
       await refreshTree();
       setSyncStatus('synced');
-      toast.add({
-        title: 'Sync completed',
-        description: `Synced to github (${workspace?.name}) is complete.`,
-        type: 'success',
-        timeout: 5000,
-      });
     } catch (err) {
-      console.error('Sync error:', err);
-      toast.add({
-        title: 'Sync failed',
-        description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
-        type: 'error',
-        timeout: 5000,
-      });
+      console.error('Startup sync error:', err);
+      setSyncStatus('error');
     }
-  }, [refreshTree, workspace?.name]);
+  }, [refreshTree]);
 
   useEffect(() => {
     if (workspace && !loading && !hasSyncedOnLoad.current) {
       hasSyncedOnLoad.current = true;
-      handleForceSync();
+      handleStartupSync();
     }
-  }, [workspace, loading, handleForceSync]);
+  }, [workspace, loading, handleStartupSync]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -272,6 +306,8 @@ export function Workspace({ fileId }: WorkspaceProps) {
     authUser,
     onLogout: handleLogout,
     onSync: handleForceSync,
+    dirtyCount,
+    hasPendingChanges,
     fileTree,
     onFileClick: (path: string) => setLocation(`/workspace/${encodeURIComponent(path)}`),
     onCreateFolder: (parentPath?: string) => {

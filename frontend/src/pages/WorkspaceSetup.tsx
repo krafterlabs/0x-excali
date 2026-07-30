@@ -79,10 +79,10 @@ export function WorkspaceSetup() {
   async function handleSelectRepo(repo: Repository) {
     setSelecting(repo.id);
     try {
-      const { SelectWorkspace, SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
+      const { SelectWorkspace, PullFileTree } = await import('../../wailsjs/go/workspace/Service');
       await SelectWorkspace(repo);
 
-      SyncFileTree().catch(console.error);
+      PullFileTree().catch(console.error);
 
       setLocation('/workspace');
     } catch (err) {

@@ -47,6 +47,8 @@ export interface SidebarProps {
   authUser: { username: string; avatar_url: string; email: string } | null;
   onLogout: () => void;
   onSync: () => void | Promise<void>;
+  dirtyCount: number;
+  hasPendingChanges: boolean;
   fileTree: database.FileNode[];
   onFileClick: (path: string) => void;
   onCreateFolder: (parentPath?: string) => void;
@@ -59,6 +61,8 @@ export function AppSidebar({
   authUser,
   onLogout,
   onSync,
+  dirtyCount,
+  hasPendingChanges,
   fileTree,
   onFileClick,
   onCreateFolder,
@@ -136,7 +140,13 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser authUser={authUser} onLogout={onLogout} onSync={onSync} />
+        <NavUser
+          authUser={authUser}
+          onLogout={onLogout}
+          onSync={onSync}
+          dirtyCount={dirtyCount}
+          hasPendingChanges={hasPendingChanges}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

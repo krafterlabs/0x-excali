@@ -83,9 +83,46 @@ func (s *Service) GetActiveWorkspace() *database.Workspace {
 	return ws
 }
 
-// SyncFileTree fetches the remote repository tree and updates the local cache.
+// GetPendingSyncCount returns the number of sync operations waiting to be pushed.
+func (s *Service) GetPendingSyncCount() int {
+	count, err := s.db.CountPendingSyncItems(s.ctx)
+	if err != nil {
+		return 0
+	}
+	return count
+}
+
+// HasPendingLocalChanges reports whether there are local edits waiting to be pushed.
+func (s *Service) HasPendingLocalChanges() bool {
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
+	if err != nil || ws == nil {
+		return false
+	}
+
+	pending, err := s.db.CountPendingSyncItems(s.ctx)
+	if err == nil && pending > 0 {
+		return true
+	}
+
+	dirty, err := s.db.GetDirtyFiles(s.ctx, ws.ID)
+	if err != nil {
+		return false
+	}
+	return len(dirty) > 0
+}
+
+// SyncFileTree pushes any pending local changes, then fetches the remote tree.
 // Preserves any locally dirty files (unsaved changes).
 func (s *Service) SyncFileTree() error {
+	return s.syncFileTree(true)
+}
+
+// PullFileTree fetches the remote repository tree without pushing local changes.
+func (s *Service) PullFileTree() error {
+	return s.syncFileTree(false)
+}
+
+func (s *Service) syncFileTree(pushLocalChanges bool) error {
 	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return fmt.Errorf("no active workspace")
@@ -95,7 +132,7 @@ func (s *Service) SyncFileTree() error {
 
 	// Push local changes FIRST so deletes/creates/updates are committed before
 	// we pull — otherwise the pull would resurrect files the user just deleted.
-	if s.syncer != nil {
+	if pushLocalChanges && s.syncer != nil && s.HasPendingLocalChanges() {
 		s.syncer.PushPending()
 	}
 
@@ -290,6 +327,10 @@ func (s *Service) SaveDiagram(path, content string) error {
 	existing, err := s.db.GetFileByPath(s.ctx, ws.ID, path)
 	if err != nil {
 		return fmt.Errorf("failed to look up file: %w", err)
+	}
+
+	if existing != nil && existing.Content == content {
+		return nil
 	}
 
 	sha := ""

@@ -184,44 +184,36 @@ export function Workspace({ fileId }: WorkspaceProps) {
     };
   }, [refreshTree, reloadWorkspace]);
 
-  const handleForceSync = useCallback(
-    async (options?: { silent?: boolean }) => {
-      const silent = options?.silent ?? false;
-      if (!silent) {
-        toast.add({
-          title: 'Started syncing',
-          description: 'Sync in progress...',
-          type: 'info',
-          timeout: 3000,
-        });
-      }
-      setSyncStatus('syncing');
-      try {
-        const { SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
-        await SyncFileTree();
-        await refreshTree();
-        setSyncStatus('synced');
-        if (!silent) {
-          toast.add({
-            title: 'Sync completed',
-            description: `Synced to github (${workspace?.name}) is complete.`,
-            type: 'success',
-            timeout: 5000,
-          });
-        }
-      } catch (err) {
-        console.error('Sync error:', err);
-        setSyncStatus('error');
-        toast.add({
-          title: 'Sync failed',
-          description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
-          type: 'error',
-          timeout: 5000,
-        });
-      }
-    },
-    [refreshTree, workspace?.name]
-  );
+  const handleForceSync = useCallback(async () => {
+    toast.add({
+      title: 'Started syncing',
+      description: 'Sync in progress...',
+      type: 'info',
+      timeout: 3000,
+    });
+    setSyncStatus('syncing');
+    try {
+      const { SyncFileTree } = await import('../../wailsjs/go/workspace/Service');
+      await SyncFileTree();
+      await refreshTree();
+      setSyncStatus('synced');
+      toast.add({
+        title: 'Sync completed',
+        description: `Synced to github (${workspace?.name}) is complete.`,
+        type: 'success',
+        timeout: 5000,
+      });
+    } catch (err) {
+      console.error('Sync error:', err);
+      setSyncStatus('error');
+      toast.add({
+        title: 'Sync failed',
+        description: err instanceof Error ? err.message : 'Could not synchronize with GitHub.',
+        type: 'error',
+        timeout: 5000,
+      });
+    }
+  }, [refreshTree, workspace?.name]);
 
   const handleStartupSync = useCallback(async () => {
     setSyncStatus('syncing');

@@ -38,6 +38,8 @@ Get the latest release from the [GitHub Releases page](https://github.com/krafte
 
 ### macOS (Homebrew)
 
+Install from the dedicated tap repository: [krafterlabs/homebrew-tap](https://github.com/krafterlabs/homebrew-tap)
+
 ```bash
 brew tap krafterlabs/tap
 brew install --cask 0x-excali

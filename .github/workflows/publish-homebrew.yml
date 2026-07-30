@@ -3,27 +3,26 @@ name: Publish Homebrew Cask
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  publish-cask:
-    name: Update homebrew-tap
+  notify-homebrew-tap:
+    name: Trigger homebrew-tap update
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
-
-      - name: Publish cask to krafterlabs/homebrew-tap
+      - name: Dispatch update to krafterlabs/homebrew-tap
         env:
-          HOMEBREW_TAP_REPO: krafterlabs/homebrew-tap
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          chmod +x scripts/homebrew/*.sh
-          ./scripts/homebrew/publish-cask.sh
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::HOMEBREW_TAP_TOKEN secret is required to update krafterlabs/homebrew-tap"
+            exit 1
+          fi
+          gh api repos/krafterlabs/homebrew-tap/dispatches \
+            --method POST \
+            -f event_type=release-published \
+            -f "client_payload[version]=${RELEASE_TAG}"

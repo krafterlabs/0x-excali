@@ -166,9 +166,8 @@ export function WorkspaceSettingsPanel({
 
             {showGitHubFlow && !authUser && (
               <GitHubDeviceFlow
-                autoStart
-                compact
-                showPrivateReposOption={false}
+                embedded
+                showPrivateReposOption
                 onComplete={handleGitHubComplete}
                 onCancel={() => setShowGitHubFlow(false)}
               />

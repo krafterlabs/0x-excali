@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
 
-import { Link2, User } from 'lucide-react';
+import { GitBranch, Link2, User } from 'lucide-react';
 
 import { GitHubDeviceFlow } from '@/components/github/github-device-flow';
 import { RepositoryPicker } from '@/components/github/repository-picker';
+import { WorkspacePanelLayout } from '@/components/layout/workspace-panel-layout';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/components/ui/toast';
 import { useGitHubRepositories } from '@/hooks/use-github-repositories';
 import { getLinkedGitHubMessage } from '@/lib/settings-github';
@@ -17,17 +17,21 @@ import type { AuthUser, GitHubRepository } from '@/types/github';
 interface WorkspaceSettingsPanelProps {
   authUser: AuthUser | null;
   isLocalMode: boolean;
+  workspaceName?: string;
   onAuthUpdated: (user: AuthUser | null) => void;
   onLocalModeChanged: (localOnly: boolean) => void;
   onRepositoryLinked: () => Promise<void>;
+  onOpenRepoSwitcher?: () => void;
 }
 
 export function WorkspaceSettingsPanel({
   authUser,
   isLocalMode,
+  workspaceName,
   onAuthUpdated,
   onLocalModeChanged,
   onRepositoryLinked,
+  onOpenRepoSwitcher,
 }: WorkspaceSettingsPanelProps) {
   const [pageError, setPageError] = useState('');
   const [linking, setLinking] = useState<number | null>(null);
@@ -95,110 +99,121 @@ export function WorkspaceSettingsPanel({
   const linkedMessage = authUser ? getLinkedGitHubMessage(isLocalMode) : null;
 
   return (
-    <ScrollArea className="h-full">
-      <div className="mx-auto max-w-2xl space-y-6 p-6">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your account, GitHub connection, and workspace preferences.
-          </p>
-        </div>
+    <WorkspacePanelLayout
+      title="Settings"
+      description="Manage your account, GitHub connection, and workspace preferences."
+    >
+      <ErrorBanner message={pageError} />
 
-        <ErrorBanner message={pageError} />
-
-        <section className="space-y-3">
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <User className="h-4 w-4" />
-                Account
-              </CardTitle>
-              <CardDescription>How you are signed in to this workspace.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {isLocalMode && !authUser && (
-                <p className="text-muted-foreground">
-                  You are using 0x-excali offline. Diagrams are saved on this device only.
+      <section className="space-y-3">
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4" />
+              Account
+            </CardTitle>
+            <CardDescription>How you are signed in to this workspace.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {isLocalMode && !authUser && (
+              <p className="text-muted-foreground">
+                You are using 0x-excali offline. Diagrams are saved on this device only.
+              </p>
+            )}
+            {authUser && (
+              <>
+                <p className="font-medium">{authUser.username}</p>
+                <p className="text-xs text-muted-foreground">
+                  {authUser.email || 'GitHub account'}
                 </p>
-              )}
-              {authUser && (
-                <>
-                  <p className="font-medium">{authUser.username}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {authUser.email || 'GitHub account'}
-                  </p>
-                </>
-              )}
-              {!authUser && !isLocalMode && (
-                <p className="text-muted-foreground">Not signed in to GitHub.</p>
-              )}
-              {isLocalMode && (
-                <p className="text-xs text-muted-foreground">Offline mode is active.</p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+              </>
+            )}
+            {!authUser && !isLocalMode && (
+              <p className="text-muted-foreground">Not signed in to GitHub.</p>
+            )}
+            {isLocalMode && (
+              <p className="text-xs text-muted-foreground">Offline mode is active.</p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
-        <section className="space-y-3">
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Link2 className="h-4 w-4" />
-                GitHub
-              </CardTitle>
-              <CardDescription>
-                Connect your account to sync diagrams to a repository.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!authUser && !showGitHubFlow && (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    {isLocalMode
-                      ? 'Connect GitHub to back up and sync your local diagrams.'
-                      : 'Sign in with GitHub to use remote repositories.'}
-                  </p>
-                  <Button onClick={() => setShowGitHubFlow(true)} className="gap-2">
-                    <Link2 className="h-4 w-4" />
-                    Connect GitHub account
+      <section className="space-y-3">
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Link2 className="h-4 w-4" />
+              GitHub
+            </CardTitle>
+            <CardDescription>
+              Connect your account and choose where diagrams are synced.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!authUser && !showGitHubFlow && (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {isLocalMode
+                    ? 'Connect GitHub to back up and sync your local diagrams.'
+                    : 'Sign in with GitHub to use remote repositories.'}
+                </p>
+                <Button onClick={() => setShowGitHubFlow(true)} className="gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Connect GitHub account
+                </Button>
+              </>
+            )}
+
+            {showGitHubFlow && !authUser && (
+              <GitHubDeviceFlow
+                autoStart
+                compact
+                showPrivateReposOption={false}
+                onComplete={handleGitHubComplete}
+                onCancel={() => setShowGitHubFlow(false)}
+              />
+            )}
+
+            {authUser && (
+              <div className="space-y-3">
+                {linkedMessage && <p className="text-sm text-muted-foreground">{linkedMessage}</p>}
+                {!isLocalMode && workspaceName && (
+                  <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-sm">
+                    <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">{workspaceName}</span>
+                  </div>
+                )}
+                {!isLocalMode && onOpenRepoSwitcher && (
+                  <Button variant="outline" onClick={onOpenRepoSwitcher} className="gap-2">
+                    <GitBranch className="h-4 w-4" />
+                    Switch repository
                   </Button>
-                </>
-              )}
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
-              {showGitHubFlow && !authUser && (
-                <GitHubDeviceFlow
-                  autoStart
-                  compact
-                  showPrivateReposOption={false}
-                  onComplete={handleGitHubComplete}
-                  onCancel={() => setShowGitHubFlow(false)}
-                />
-              )}
-
-              {authUser && linkedMessage && (
-                <p className="text-sm text-muted-foreground">{linkedMessage}</p>
-              )}
-            </CardContent>
-          </Card>
+      {showLinkRepos && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground">Link repository</h2>
+          <p className="text-xs text-muted-foreground">
+            Pick a GitHub repository to sync your local diagrams.
+          </p>
+          <RepositoryPicker
+            repos={filteredRepos}
+            loading={reposLoading}
+            error={reposError}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSelect={handleLinkRepo}
+            processingRepoId={linking}
+            disabled={linking !== null}
+            listClassName="max-h-[min(360px,40vh)] overflow-y-auto"
+          />
         </section>
-
-        {showLinkRepos && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-medium text-foreground">Link repository</h2>
-            <RepositoryPicker
-              repos={filteredRepos}
-              loading={reposLoading}
-              error={reposError}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSelect={handleLinkRepo}
-              processingRepoId={linking}
-              disabled={linking !== null}
-              listClassName="max-h-[min(360px,40vh)] overflow-y-auto"
-            />
-          </section>
-        )}
-      </div>
-    </ScrollArea>
+      )}
+    </WorkspacePanelLayout>
   );
 }

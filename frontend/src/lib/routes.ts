@@ -5,6 +5,7 @@ export const ROUTES = {
   SETUP_WORKSPACE: '/setup-workspace',
   WORKSPACE: '/workspace',
   WORKSPACE_SETTINGS: '/workspace/settings',
+  WORKSPACE_ABOUT: '/workspace/about',
 } as const;
 
 /** @deprecated Use ROUTES.WORKSPACE_SETTINGS */
@@ -28,12 +29,14 @@ export function workspaceFilePath(filePath: string): string {
 
 const WORKSPACE_ROUTE_PREFIX = `${ROUTES.WORKSPACE}/`;
 
+const RESERVED_WORKSPACE_SEGMENTS = new Set(['settings', 'about']);
+
 export function workspaceFilePathFromLocation(location: string): string {
   if (!location.startsWith(WORKSPACE_ROUTE_PREFIX)) {
     return '';
   }
   const segment = decodeURIComponent(location.slice(WORKSPACE_ROUTE_PREFIX.length));
-  if (!segment || segment === 'settings') {
+  if (!segment || RESERVED_WORKSPACE_SEGMENTS.has(segment)) {
     return '';
   }
   return segment;

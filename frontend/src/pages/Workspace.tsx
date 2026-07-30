@@ -4,6 +4,8 @@ import { FileText, History, LayoutTemplate, Loader2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 import { AppShell } from '@/components/layout/AppShell';
+import type { WorkspacePanelView } from '@/components/layout/Header';
+import { WorkspaceAboutPanel } from '@/components/settings/workspace-about-panel';
 import { WorkspaceSettingsPanel } from '@/components/settings/workspace-settings-panel';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,14 +28,14 @@ import { database } from '../../wailsjs/go/models';
 
 interface WorkspaceProps {
   fileId?: string;
-  showSettings?: boolean;
+  panel?: WorkspacePanelView;
 }
 
 export interface TreeNode extends database.FileNode {
   children: TreeNode[];
 }
 
-export function Workspace({ fileId, showSettings = false }: WorkspaceProps) {
+export function Workspace({ fileId, panel }: WorkspaceProps) {
   const [, setLocation] = useLocation();
   const [workspace, setWorkspace] = useState<database.Workspace | null>(null);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
@@ -45,6 +47,7 @@ export function Workspace({ fileId, showSettings = false }: WorkspaceProps) {
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isLocalMode, setIsLocalMode] = useState(false);
+  const [repoSwitcherOpen, setRepoSwitcherOpen] = useState(false);
 
   const hasSyncedOnLoad = useRef(false);
 
@@ -357,8 +360,8 @@ export function Workspace({ fileId, showSettings = false }: WorkspaceProps) {
 
   const headerProps = {
     workspace,
-    activeFile: showSettings ? undefined : fileId ? decodeURIComponent(fileId) : undefined,
-    settingsView: showSettings,
+    activeFile: panel ? undefined : fileId ? decodeURIComponent(fileId) : undefined,
+    panelView: panel,
     syncStatus,
     dirtyCount,
     onSync: handleForceSync,
@@ -387,23 +390,27 @@ export function Workspace({ fileId, showSettings = false }: WorkspaceProps) {
     },
     onDelete: handleDelete,
     onWorkspaceSwitch: handleWorkspaceSwitch,
+    repoSwitcherOpen,
+    onRepoSwitcherOpenChange: setRepoSwitcherOpen,
   };
 
   return (
     <AppShell headerProps={headerProps} sidebarProps={sidebarProps}>
-      {showSettings ? (
+      {panel === 'settings' ? (
         <WorkspaceSettingsPanel
           authUser={authUser}
           isLocalMode={isLocalMode}
+          workspaceName={workspace?.full_name}
           onAuthUpdated={setAuthUser}
           onLocalModeChanged={(localOnly) => {
             setIsLocalMode(localOnly);
             setSyncStatus(localOnly ? 'offline' : 'synced');
           }}
-          onRepositoryLinked={async () => {
-            await reloadWorkspace();
-          }}
+          onRepositoryLinked={reloadWorkspace}
+          onOpenRepoSwitcher={() => setRepoSwitcherOpen(true)}
         />
+      ) : panel === 'about' ? (
+        <WorkspaceAboutPanel />
       ) : fileId ? (
         <CanvasView id={fileId} key={fileId} />
       ) : (

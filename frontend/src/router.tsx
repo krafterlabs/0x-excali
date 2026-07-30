@@ -34,7 +34,10 @@ export function AppRouter() {
       <Route path={LEGACY_SETTINGS_PATH} component={RedirectLegacySettings} />
 
       <Route path={ROUTES.WORKSPACE_SETTINGS}>
-        <Workspace showSettings />
+        <Workspace panel="settings" />
+      </Route>
+      <Route path={ROUTES.WORKSPACE_ABOUT}>
+        <Workspace panel="about" />
       </Route>
       <Route path={ROUTES.WORKSPACE}>
         <Workspace />

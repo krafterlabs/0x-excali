@@ -60,6 +60,8 @@ export interface SidebarProps {
   onCreateDiagram: (parentPath?: string) => void;
   onDelete: (path: string) => void;
   onWorkspaceSwitch: () => Promise<void>;
+  repoSwitcherOpen?: boolean;
+  onRepoSwitcherOpenChange?: (open: boolean) => void;
 }
 
 export function AppSidebar({
@@ -76,10 +78,14 @@ export function AppSidebar({
   onCreateDiagram,
   onDelete,
   onWorkspaceSwitch,
+  repoSwitcherOpen,
+  onRepoSwitcherOpenChange,
   ...props
 }: SidebarProps & React.ComponentProps<typeof Sidebar>) {
   const [location] = useLocation();
-  const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  const [internalSwitcherOpen, setInternalSwitcherOpen] = React.useState(false);
+  const switcherOpen = repoSwitcherOpen ?? internalSwitcherOpen;
+  const setSwitcherOpen = onRepoSwitcherOpenChange ?? setInternalSwitcherOpen;
   const selectedPath = workspaceFilePathFromLocation(location);
 
   return (

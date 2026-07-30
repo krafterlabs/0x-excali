@@ -16,20 +16,27 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 import { database } from '../../../wailsjs/go/models';
 
+export type WorkspacePanelView = 'settings' | 'about';
+
 export interface HeaderProps {
   workspace: database.Workspace | null;
   activeFile?: string;
-  settingsView?: boolean;
+  panelView?: WorkspacePanelView;
   syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
   dirtyCount: number;
   onSync: () => void | Promise<void>;
   showSync?: boolean;
 }
 
+const PANEL_TITLES: Record<WorkspacePanelView, string> = {
+  settings: 'Settings',
+  about: 'About',
+};
+
 export function Header({
   workspace,
   activeFile,
-  settingsView = false,
+  panelView,
   syncStatus,
   dirtyCount,
   onSync,
@@ -44,9 +51,9 @@ export function Header({
 
           <Breadcrumb>
             <BreadcrumbList>
-              {settingsView ? (
+              {panelView ? (
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Settings</BreadcrumbPage>
+                  <BreadcrumbPage>{PANEL_TITLES[panelView]}</BreadcrumbPage>
                 </BreadcrumbItem>
               ) : (
                 <>

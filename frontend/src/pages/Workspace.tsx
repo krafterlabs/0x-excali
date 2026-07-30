@@ -72,14 +72,8 @@ export function Workspace({ fileId }: WorkspaceProps) {
     try {
       await reloadWorkspace();
       setSyncStatus('syncing');
-      const { HasPendingLocalChanges, PullFileTree, SyncFileTree } =
-        await import('../../wailsjs/go/workspace/Service');
-      const hasLocalChanges = await HasPendingLocalChanges();
-      if (hasLocalChanges) {
-        await SyncFileTree();
-      } else {
-        await PullFileTree();
-      }
+      const { PullFileTree } = await import('../../wailsjs/go/workspace/Service');
+      await PullFileTree();
       await reloadWorkspace();
       setSyncStatus('synced');
       hasSyncedOnLoad.current = true;

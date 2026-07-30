@@ -252,9 +252,9 @@ export function WorkspaceSwitcherDialog({
         {confirmRepo && (
           <div className="border-t border-border/50 bg-muted/30 px-5 py-4">
             <p className="text-sm text-foreground mb-3">
-              <span className="font-medium">{activeRepoName}</span> has unsynced changes. They
-              will stay on this device until you sync. Switch to{' '}
-              <span className="font-medium">{confirmRepo.full_name}</span>?
+              You have unsaved changes in{' '}
+              <span className="font-medium">{activeRepoName}</span>. They&apos;ll stay on this
+              device until you sync.
             </p>
             <DialogFooter className="sm:justify-end gap-2">
               <Button variant="outline" onClick={() => setConfirmRepo(null)} disabled={!!switching}>

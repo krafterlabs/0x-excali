@@ -36,7 +36,16 @@ Get the latest release from the [GitHub Releases page](https://github.com/krafte
 
 ## Installation
 
-### macOS
+### macOS (Homebrew)
+
+```bash
+brew tap krafterlabs/tap
+brew install --cask 0x-excali
+```
+
+Update later with `brew upgrade --cask 0x-excali`.
+
+### macOS (manual)
 Download the latest `.dmg` from the Releases page, open it, and drag **0x-excali** to your Applications folder.
 
 **First launch — Gatekeeper prompt**

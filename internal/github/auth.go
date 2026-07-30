@@ -36,6 +36,7 @@ type AuthService struct {
 	// cancelPoll allows cancelling an in-progress device flow poll
 	mu         sync.Mutex
 	cancelPoll context.CancelFunc
+	pollGen    int
 }
 
 // DeviceCodeResponse is returned from GitHub's device/code endpoint.
@@ -166,13 +167,14 @@ func (a *AuthService) StartDeviceFlow(requestPrivateAccess bool) (*DeviceCodeRes
 //   - "auth:complete" with AuthResult on success
 //   - "auth:error" with error string on failure
 func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn int) {
-	// Cancel any previous poll
 	a.mu.Lock()
 	if a.cancelPoll != nil {
 		a.cancelPoll()
 	}
 
 	pollCtx, cancel := context.WithTimeout(a.ctx, time.Duration(expiresIn)*time.Second)
+	a.pollGen++
+	gen := a.pollGen
 	a.cancelPoll = cancel
 	a.mu.Unlock()
 
@@ -185,10 +187,14 @@ func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn in
 		}
 
 		for {
-			// Wait for the interval duration, or until context is done
 			select {
 			case <-pollCtx.Done():
-				wailsRuntime.EventsEmit(a.ctx, "auth:error", "Authorization timed out or was cancelled")
+				a.mu.Lock()
+				stillActive := gen == a.pollGen
+				a.mu.Unlock()
+				if stillActive && pollCtx.Err() == context.DeadlineExceeded {
+					wailsRuntime.EventsEmit(a.ctx, "auth:error", "Authorization timed out. Please try again.")
+				}
 				return
 			case <-time.After(time.Duration(currentInterval) * time.Second):
 				result, newInterval, done := a.pollOnce(pollCtx, deviceCode)
@@ -202,13 +208,23 @@ func (a *AuthService) PollForToken(deviceCode string, interval int, expiresIn in
 					return
 				}
 
-				// Update interval if GitHub requested a slow_down
 				if newInterval > 0 {
 					currentInterval = newInterval
 				}
 			}
 		}
 	}()
+}
+
+// CancelDeviceFlow stops an in-progress device authorization poll without surfacing an error.
+func (a *AuthService) CancelDeviceFlow() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.cancelPoll != nil {
+		a.pollGen++
+		a.cancelPoll()
+		a.cancelPoll = nil
+	}
 }
 
 // OpenVerificationURL opens the GitHub verification URL in the system's default browser.

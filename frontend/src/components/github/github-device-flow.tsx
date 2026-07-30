@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CheckCircle2, Copy, ExternalLink, Loader2 } from 'lucide-react';
 
@@ -10,17 +10,15 @@ import { TIMING } from '@/lib/timing';
 interface GitHubDeviceFlowProps {
   onComplete: () => void;
   onCancel?: () => void;
-  autoStart?: boolean;
   showPrivateReposOption?: boolean;
-  compact?: boolean;
+  embedded?: boolean;
 }
 
 export function GitHubDeviceFlow({
   onComplete,
   onCancel,
-  autoStart = false,
   showPrivateReposOption = true,
-  compact = false,
+  embedded = false,
 }: GitHubDeviceFlowProps) {
   const [userCode, setUserCode] = useState('');
   const [verificationURI, setVerificationURI] = useState('');
@@ -30,15 +28,30 @@ export function GitHubDeviceFlow({
   const [isStarting, setIsStarting] = useState(false);
   const [requestPrivateAccess, setRequestPrivateAccess] = useState(false);
   const [flowStarted, setFlowStarted] = useState(false);
+  const flowActiveRef = useRef(false);
+
+  const stopFlow = useCallback(async () => {
+    flowActiveRef.current = false;
+    setIsPolling(false);
+    try {
+      const { CancelDeviceFlow } = await import('../../../wailsjs/go/github/AuthService');
+      await CancelDeviceFlow();
+    } catch {
+      void 0;
+    }
+  }, []);
 
   const startFlow = useCallback(async () => {
     setIsStarting(true);
     setError('');
     setFlowStarted(true);
+    flowActiveRef.current = true;
 
     try {
       const { StartDeviceFlow, PollForToken } = await import('../../../wailsjs/go/github/AuthService');
       const result = await StartDeviceFlow(requestPrivateAccess);
+
+      if (!flowActiveRef.current) return;
 
       setUserCode(result.user_code);
       setVerificationURI(result.verification_uri);
@@ -47,6 +60,7 @@ export function GitHubDeviceFlow({
       PollForToken(result.device_code, result.interval, result.expires_in);
       setIsPolling(true);
     } catch (err) {
+      if (!flowActiveRef.current) return;
       setError(
         err instanceof Error ? err.message : 'GitHub authorization failed. Please try again.'
       );
@@ -55,27 +69,23 @@ export function GitHubDeviceFlow({
   }, [requestPrivateAccess]);
 
   useEffect(() => {
-    if (!autoStart) return;
-    void startFlow();
-  }, [autoStart, startFlow]);
-
-  useEffect(() => {
-    let cancelled = false;
+    let removeComplete: (() => void) | undefined;
+    let removeError: (() => void) | undefined;
 
     async function setupListeners() {
       try {
         const { EventsOn } = await import('../../../wailsjs/runtime/runtime');
 
-        EventsOn('auth:complete', () => {
-          if (cancelled) return;
+        removeComplete = EventsOn('auth:complete', () => {
+          if (!flowActiveRef.current) return;
           setIsPolling(false);
           setTimeout(() => {
-            if (!cancelled) onComplete();
+            if (flowActiveRef.current) onComplete();
           }, TIMING.AUTH_COMPLETE_REDIRECT_MS);
         });
 
-        EventsOn('auth:error', (errorMsg: string) => {
-          if (cancelled) return;
+        removeError = EventsOn('auth:error', (errorMsg: string) => {
+          if (!flowActiveRef.current) return;
           setIsPolling(false);
           setError(errorMsg);
         });
@@ -84,11 +94,18 @@ export function GitHubDeviceFlow({
       }
     }
 
-    setupListeners();
+    void setupListeners();
     return () => {
-      cancelled = true;
+      removeComplete?.();
+      removeError?.();
     };
   }, [onComplete]);
+
+  useEffect(() => {
+    return () => {
+      void stopFlow();
+    };
+  }, [stopFlow]);
 
   const handleCopyCode = useCallback(async () => {
     try {
@@ -109,23 +126,35 @@ export function GitHubDeviceFlow({
     }
   }, [verificationURI]);
 
-  const resetFlow = () => {
+  const handleCancel = useCallback(async () => {
+    await stopFlow();
+    setFlowStarted(false);
+    setUserCode('');
+    setVerificationURI('');
+    setIsStarting(false);
+    setError('');
+    onCancel?.();
+  }, [onCancel, stopFlow]);
+
+  const resetFlow = useCallback(async () => {
+    await stopFlow();
     setError('');
     setFlowStarted(false);
     setUserCode('');
     setVerificationURI('');
-    setIsPolling(false);
     setIsStarting(false);
-  };
+  }, [stopFlow]);
+
+  const shellClass = embedded ? 'space-y-4' : 'space-y-4';
 
   if (!flowStarted && !error) {
     return (
-      <div className={compact ? 'space-y-3' : 'space-y-4'}>
+      <div className={shellClass}>
         {showPrivateReposOption && (
           <div className="flex items-start gap-3 rounded-lg border border-border/50 p-3">
             <div className="mt-0.5 flex h-5 items-center">
               <input
-                id="settings-private-access"
+                id="github-private-access"
                 type="checkbox"
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
                 checked={requestPrivateAccess}
@@ -134,7 +163,7 @@ export function GitHubDeviceFlow({
             </div>
             <div className="flex flex-col gap-1">
               <label
-                htmlFor="settings-private-access"
+                htmlFor="github-private-access"
                 className="cursor-pointer text-sm font-medium leading-none"
               >
                 Include private repositories
@@ -150,7 +179,7 @@ export function GitHubDeviceFlow({
             Continue with GitHub
           </Button>
           {onCancel && (
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
           )}
@@ -161,12 +190,14 @@ export function GitHubDeviceFlow({
 
   if (isStarting && !error) {
     return (
-      <Card className="border-border/50 bg-card/50">
-        <CardContent className="flex flex-col items-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">Connecting to GitHub...</p>
-        </CardContent>
-      </Card>
+      <div className={embedded ? 'py-6 text-center' : ''}>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="flex flex-col items-center p-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">Connecting to GitHub...</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -180,7 +211,7 @@ export function GitHubDeviceFlow({
               Try again
             </Button>
             {onCancel && (
-              <Button variant="ghost" size="sm" onClick={onCancel}>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>
                 Cancel
               </Button>
             )}
@@ -246,7 +277,7 @@ export function GitHubDeviceFlow({
       )}
 
       {onCancel && (
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={handleCancel}>
           Cancel
         </Button>
       )}

@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/sidebar';
 import { SidebarFooter } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { isDiagramFile } from '@/lib/diagram-format';
 import { ROUTES, workspaceFilePathFromLocation } from '@/lib/routes';
 
 import { database } from '../../wailsjs/go/models';
@@ -244,15 +245,15 @@ function TreeItem({
   onDelete,
 }: TreeProps & { node: TreeNode }) {
   const isFolder = node.type === 'folder' || node.type === 'tree';
-  const isExcalidraw = node.name.endsWith('.excalidraw');
+  const isDiagram = isDiagramFile(node.name);
   const isSelected = selectedPath === node.path;
 
   const [unsupported, setUnsupported] = React.useState(false);
 
   const handleFileClick = () => {
-    if (isExcalidraw && onFileClick) {
+    if (isDiagram && onFileClick) {
       onFileClick(node.path);
-    } else if (!isExcalidraw) {
+    } else if (!isDiagram) {
       setUnsupported(true);
       setTimeout(() => setUnsupported(false), 2000);
     }
@@ -328,7 +329,7 @@ function TreeItem({
         style={{ paddingLeft: `${paddingLeft + 16}px` }}
       >
         <FileText
-          className={cn(isExcalidraw ? 'text-violet-400' : 'text-muted-foreground opacity-50')}
+          className={cn(isDiagram ? 'text-violet-400' : 'text-muted-foreground opacity-50')}
         />
         <span className="truncate flex-1">{node.name}</span>
         {unsupported && (

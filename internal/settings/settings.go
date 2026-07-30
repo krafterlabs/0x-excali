@@ -17,7 +17,7 @@ const settingsKey = "app_settings"
 // Config represents all user-configurable settings, persisted to the local DB.
 type Config struct {
 	Theme            string `json:"theme"`           // "dark" | "light"
-	ExcalidrawTheme  string `json:"excalidrawTheme"` // "dark" | "light"
+	CanvasTheme  string `json:"excalidrawTheme"` // persisted key; "dark" | "light"
 	GridMode         bool   `json:"gridMode"`
 	ExportBackground bool   `json:"exportBackground"`
 	ExportDarkMode   bool   `json:"exportDarkMode"`
@@ -46,7 +46,7 @@ func (s *Service) SetContext(ctx context.Context) {
 func DefaultConfig() Config {
 	return Config{
 		Theme:            "dark",
-		ExcalidrawTheme:  "dark",
+		CanvasTheme:  "dark",
 		GridMode:         false,
 		ExportBackground: true,
 		ExportDarkMode:   true,

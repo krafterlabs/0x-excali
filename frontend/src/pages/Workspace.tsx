@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
 import { CanvasView } from '@/pages/CanvasView';
 import { ROUTES, workspaceFilePath } from '@/lib/routes';
+import { withDiagramExtension } from '@/lib/diagram-format';
 import { TIMING } from '@/lib/timing';
 import { bootstrapWorkspace } from '@/lib/workspace-session';
 
@@ -309,8 +310,8 @@ export function Workspace({ fileId }: WorkspaceProps) {
       setShowNewDiagram(false);
 
       const path = newItemParent
-        ? `${newItemParent}/${newItemName.trim()}.excalidraw`
-        : `${newItemName.trim()}.excalidraw`;
+        ? `${newItemParent}/${withDiagramExtension(newItemName.trim())}`
+        : withDiagramExtension(newItemName.trim());
       setLocation(workspaceFilePath(path));
     } catch (err) {
       console.error('Create diagram error:', err);

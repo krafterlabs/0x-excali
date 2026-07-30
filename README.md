@@ -1,6 +1,6 @@
 # 0x-excali
 
-A lightweight desktop workspace for organizing Excalidraw drawings and syncing them with GitHub.
+A lightweight desktop workspace for organizing visual drawings and syncing them with GitHub.
 
 [![Latest Release](https://img.shields.io/github/v/release/krafterlabs/0x-excali?sort=semver)](https://github.com/krafterlabs/0x-excali/releases/latest)
 [![Release](https://github.com/krafterlabs/0x-excali/actions/workflows/auto-release.yml/badge.svg)](https://github.com/krafterlabs/0x-excali/actions/workflows/auto-release.yml)
@@ -14,7 +14,7 @@ A lightweight desktop workspace for organizing Excalidraw drawings and syncing t
 
 ## Overview
 
-0x-excali is a native desktop application designed to provide a fast, local-first editing experience for visual thinkers. It elegantly integrates the open-source Excalidraw canvas with a local SQLite cache, automatically syncing your workspaces directly to your remote GitHub repositories. 
+0x-excali is a native desktop application designed to provide a fast, local-first editing experience for visual thinkers. It combines a drawing canvas with a local SQLite cache, automatically syncing your workspaces directly to your remote GitHub repositories.
 
 ## Key Features
 
@@ -23,7 +23,7 @@ A lightweight desktop workspace for organizing Excalidraw drawings and syncing t
 - **Repository-based organization** — Organize your drawings directly inside Git repositories.
 - **Offline editing with queued sync** — Work on a plane, sync when you land.
 - **Desktop app built with Wails** — Ultra-lightweight binaries via Go and React/Vite.
-- **Excalidraw-powered canvas** — Full-featured drawing experience embedded natively.
+- **Visual drawing canvas** — Full-featured drawing experience embedded natively.
 
 ## Downloads
 
@@ -93,7 +93,7 @@ We utilize an automated release pipeline powered by GitHub Actions:
 
 ## Attribution
 
-> 0x-excali is an independent, open-source project. It is not affiliated with, endorsed by, or sponsored by Excalidraw. 
+Third-party software attributions are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 

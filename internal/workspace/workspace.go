@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"0x-excali/internal/database"
+	"0x-excali/internal/diagram"
 	"0x-excali/internal/github"
 	"0x-excali/internal/sync"
 
@@ -380,7 +381,7 @@ func (s *Service) CreateFolder(folderPath string) error {
 	return nil
 }
 
-// CreateDiagram creates a new blank .excalidraw diagram.
+// CreateDiagram creates a new blank diagram file.
 func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, error) {
 	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
@@ -391,9 +392,8 @@ func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, er
 		return nil, err
 	}
 
-	// Ensure the name ends with .excalidraw
-	if !strings.HasSuffix(name, ".excalidraw") {
-		name = name + ".excalidraw"
+	if !strings.HasSuffix(name, diagram.FileExtension) {
+		name = name + diagram.FileExtension
 	}
 
 	var diagramPath string
@@ -403,9 +403,8 @@ func (s *Service) CreateDiagram(folderPath, name string) (*database.FileNode, er
 		diagramPath = folderPath + "/" + name
 	}
 
-	// Create blank Excalidraw JSON
 	blankDiagram := map[string]interface{}{
-		"type":     "excalidraw",
+		"type":     diagram.JSONType,
 		"version":  2,
 		"source":   "0x-excali",
 		"elements": []interface{}{},

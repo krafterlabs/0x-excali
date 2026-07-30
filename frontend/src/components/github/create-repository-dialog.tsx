@@ -75,7 +75,7 @@ export function CreateRepositoryDialog({
               Repository name
             </label>
             <Input
-              placeholder="my-excalidraw-workspace"
+              placeholder="my-diagrams-workspace"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -85,7 +85,7 @@ export function CreateRepositoryDialog({
               Description <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <Input
-              placeholder="My Excalidraw diagrams workspace"
+              placeholder="My visual workspace"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />

@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 
 import { EditorHeader } from '@/components/layout/EditorHeader';
 import { Button } from '@/components/ui/button';
+import { DIAGRAM_JSON_TYPE } from '@/lib/diagram-format';
 import { ROUTES } from '@/lib/routes';
 
 import { SaveDiagram } from '../../wailsjs/go/workspace/Service';
@@ -30,7 +31,7 @@ export function CanvasView({ id }: CanvasViewProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [excalidrawTheme, setExcalidrawTheme] = useState<'dark' | 'light'>('dark');
+  const [canvasTheme, setCanvasTheme] = useState<'dark' | 'light'>('dark');
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef<string>('');
@@ -43,7 +44,7 @@ export function CanvasView({ id }: CanvasViewProps) {
         try {
           const { GetSettings } = await import('../../wailsjs/go/settings/Service');
           const config = await GetSettings();
-          setExcalidrawTheme((config.excalidrawTheme as 'dark' | 'light') || 'dark');
+          setCanvasTheme((config.excalidrawTheme as 'dark' | 'light') || 'dark');
         } catch {
           void 0;
         }
@@ -123,7 +124,7 @@ export function CanvasView({ id }: CanvasViewProps) {
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       const content = JSON.stringify(
         {
-          type: 'excalidraw',
+          type: DIAGRAM_JSON_TYPE,
           version: 2,
           source: '0x-excali',
           elements: elements,
@@ -179,8 +180,9 @@ export function CanvasView({ id }: CanvasViewProps) {
         {initialData && (
           <Excalidraw
             initialData={initialData}
-            theme={excalidrawTheme}
+            theme={canvasTheme}
             UIOptions={{
+              welcomeScreen: false,
               canvasActions: {
                 loadScene: false,
                 export: { saveFileToDisk: true },

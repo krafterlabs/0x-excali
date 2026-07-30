@@ -36,19 +36,46 @@ export function useGitHubReleases() {
   return { releases, loading, error };
 }
 
-function formatReleaseDate(isoDate: string): string {
+export interface ParsedReleaseNotes {
+  heading?: string;
+  items: string[];
+}
+
+export function parseReleaseNotes(body: string): ParsedReleaseNotes {
+  const lines = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let heading: string | undefined;
+  const items: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('**Full Changelog**')) break;
+
+    if (line.startsWith('##')) {
+      heading = line.replace(/^#+\s*/, '').trim();
+      continue;
+    }
+
+    if (/^[*\-]\s+/.test(line)) {
+      items.push(
+        line
+          .replace(/^[*\-]\s+/, '')
+          .replace(/\*([^*]+)\*/g, '$1')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+          .trim()
+      );
+    }
+  }
+
+  return { heading, items };
+}
+
+export function formatReleaseDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
-
-export function formatReleaseSummary(body: string): string {
-  const trimmed = body.trim();
-  if (!trimmed) return 'No release notes.';
-  const lines = trimmed.split('\n').filter((line) => line.trim());
-  return lines.slice(0, 6).join('\n');
-}
-
-export { formatReleaseDate };

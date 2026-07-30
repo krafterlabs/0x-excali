@@ -4,10 +4,12 @@ import { GitBranch, Link2, User } from 'lucide-react';
 
 import { GitHubDeviceFlow } from '@/components/github/github-device-flow';
 import { RepositoryPicker } from '@/components/github/repository-picker';
-import { WorkspacePanelLayout } from '@/components/layout/workspace-panel-layout';
+import {
+  WorkspacePanelLayout,
+  WorkspacePanelSection,
+} from '@/components/layout/workspace-panel-layout';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/toast';
 import { useGitHubRepositories } from '@/hooks/use-github-repositories';
 import { getLinkedGitHubMessage } from '@/lib/settings-github';
@@ -105,101 +107,88 @@ export function WorkspaceSettingsPanel({
     >
       <ErrorBanner message={pageError} />
 
-      <section className="space-y-3">
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-4 w-4" />
-              Account
-            </CardTitle>
-            <CardDescription>How you are signed in to this workspace.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {isLocalMode && !authUser && (
-              <p className="text-muted-foreground">
-                You are using 0x-excali offline. Diagrams are saved on this device only.
-              </p>
-            )}
-            {authUser && (
-              <>
-                <p className="font-medium">{authUser.username}</p>
-                <p className="text-xs text-muted-foreground">
-                  {authUser.email || 'GitHub account'}
-                </p>
-              </>
-            )}
-            {!authUser && !isLocalMode && (
-              <p className="text-muted-foreground">Not signed in to GitHub.</p>
-            )}
-            {isLocalMode && (
-              <p className="text-xs text-muted-foreground">Offline mode is active.</p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+      <WorkspacePanelSection
+        title="Account"
+        description="How you are signed in to this workspace."
+        icon={<User className="h-4 w-4 text-muted-foreground" />}
+      >
+        <div className="space-y-2 text-sm">
+          {isLocalMode && !authUser && (
+            <p className="leading-relaxed text-muted-foreground">
+              You are using 0x-excali offline. Diagrams are saved on this device only.
+            </p>
+          )}
+          {authUser && (
+            <>
+              <p className="font-medium">{authUser.username}</p>
+              <p className="text-xs text-muted-foreground">{authUser.email || 'GitHub account'}</p>
+            </>
+          )}
+          {!authUser && !isLocalMode && (
+            <p className="text-muted-foreground">Not signed in to GitHub.</p>
+          )}
+          {isLocalMode && (
+            <p className="text-xs text-muted-foreground">Offline mode is active.</p>
+          )}
+        </div>
+      </WorkspacePanelSection>
 
-      <section className="space-y-3">
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
+      <WorkspacePanelSection
+        title="GitHub"
+        description="Connect your account and choose where diagrams are synced."
+        icon={<Link2 className="h-4 w-4 text-muted-foreground" />}
+        className="border-t border-border/40 pt-8"
+      >
+        {!authUser && !showGitHubFlow && (
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {isLocalMode
+                ? 'Connect GitHub to back up and sync your local diagrams.'
+                : 'Sign in with GitHub to use remote repositories.'}
+            </p>
+            <Button onClick={() => setShowGitHubFlow(true)} className="gap-2">
               <Link2 className="h-4 w-4" />
-              GitHub
-            </CardTitle>
-            <CardDescription>
-              Connect your account and choose where diagrams are synced.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!authUser && !showGitHubFlow && (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  {isLocalMode
-                    ? 'Connect GitHub to back up and sync your local diagrams.'
-                    : 'Sign in with GitHub to use remote repositories.'}
-                </p>
-                <Button onClick={() => setShowGitHubFlow(true)} className="gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Connect GitHub account
-                </Button>
-              </>
-            )}
+              Connect GitHub account
+            </Button>
+          </div>
+        )}
 
-            {showGitHubFlow && !authUser && (
-              <GitHubDeviceFlow
-                embedded
-                showPrivateReposOption
-                onComplete={handleGitHubComplete}
-                onCancel={() => setShowGitHubFlow(false)}
-              />
-            )}
+        {showGitHubFlow && !authUser && (
+          <GitHubDeviceFlow
+            embedded
+            showPrivateReposOption
+            onComplete={handleGitHubComplete}
+            onCancel={() => setShowGitHubFlow(false)}
+          />
+        )}
 
-            {authUser && (
-              <div className="space-y-3">
-                {linkedMessage && <p className="text-sm text-muted-foreground">{linkedMessage}</p>}
-                {!isLocalMode && workspaceName && (
-                  <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-sm">
-                    <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium">{workspaceName}</span>
-                  </div>
-                )}
-                {!isLocalMode && onOpenRepoSwitcher && (
-                  <Button variant="outline" onClick={onOpenRepoSwitcher} className="gap-2">
-                    <GitBranch className="h-4 w-4" />
-                    Switch repository
-                  </Button>
-                )}
+        {authUser && (
+          <div className="space-y-4">
+            {linkedMessage && (
+              <p className="text-sm leading-relaxed text-muted-foreground">{linkedMessage}</p>
+            )}
+            {!isLocalMode && workspaceName && (
+              <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2.5 text-sm">
+                <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate font-medium">{workspaceName}</span>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </section>
+            {!isLocalMode && onOpenRepoSwitcher && (
+              <Button variant="outline" onClick={onOpenRepoSwitcher} className="gap-2">
+                <GitBranch className="h-4 w-4" />
+                Switch repository
+              </Button>
+            )}
+          </div>
+        )}
+      </WorkspacePanelSection>
 
       {showLinkRepos && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium text-foreground">Link repository</h2>
-          <p className="text-xs text-muted-foreground">
-            Pick a GitHub repository to sync your local diagrams.
-          </p>
+        <WorkspacePanelSection
+          title="Link repository"
+          description="Pick a GitHub repository to sync your local diagrams."
+          className="border-t border-border/40 pt-8"
+        >
           <RepositoryPicker
             repos={filteredRepos}
             loading={reposLoading}
@@ -211,7 +200,7 @@ export function WorkspaceSettingsPanel({
             disabled={linking !== null}
             listClassName="max-h-[min(360px,40vh)] overflow-y-auto"
           />
-        </section>
+        </WorkspacePanelSection>
       )}
     </WorkspacePanelLayout>
   );

@@ -4,7 +4,6 @@ import { CheckCircle2, Copy, ExternalLink, Loader2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { TIMING } from '@/lib/timing';
 
 interface GitHubDeviceFlowProps {
@@ -145,11 +144,11 @@ export function GitHubDeviceFlow({
     setIsStarting(false);
   }, [stopFlow]);
 
-  const shellClass = embedded ? 'space-y-4' : 'space-y-4';
+  const stepShell = embedded ? 'rounded-md border border-border/40 bg-muted/20 p-4' : '';
 
   if (!flowStarted && !error) {
     return (
-      <div className={shellClass}>
+      <div className="space-y-4">
         {showPrivateReposOption && (
           <div className="flex items-start gap-3 rounded-lg border border-border/50 p-3">
             <div className="mt-0.5 flex h-5 items-center">
@@ -190,84 +189,76 @@ export function GitHubDeviceFlow({
 
   if (isStarting && !error) {
     return (
-      <div className={embedded ? 'py-6 text-center' : ''}>
-        <Card className="border-border/50 bg-card/50">
-          <CardContent className="flex flex-col items-center p-6">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">Connecting to GitHub...</p>
-          </CardContent>
-        </Card>
+      <div className={embedded ? stepShell : undefined}>
+        <div className="flex flex-col items-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">Connecting to GitHub...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="border-destructive/50 bg-destructive/5">
-        <CardContent className="space-y-3 p-4">
-          <p className="text-sm text-destructive">{error}</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={resetFlow}>
-              Try again
+      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4">
+        <p className="text-sm text-destructive">{error}</p>
+        <div className="mt-3 flex gap-2">
+          <Button variant="outline" size="sm" onClick={resetFlow}>
+            Try again
+          </Button>
+          {onCancel && (
+            <Button variant="ghost" size="sm" onClick={handleCancel}>
+              Cancel
             </Button>
-            {onCancel && (
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
-                Cancel
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <Card className="border-border/50 bg-card/50">
-        <CardContent className="p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              Step 1
-            </Badge>
-            <span className="text-sm text-muted-foreground">Copy this code</span>
+    <div className="space-y-4">
+      <div className={stepShell}>
+        <div className="mb-3 flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">
+            Step 1
+          </Badge>
+          <span className="text-sm text-muted-foreground">Copy this code</span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopyCode}
+          className="group w-full rounded-md border border-border/50 bg-background/80 p-4 text-center transition-all hover:border-primary/30"
+        >
+          <code className="text-2xl font-mono font-bold tracking-[0.25em]">{userCode}</code>
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            {copied ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-emerald-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                <span>Click to copy</span>
+              </>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={handleCopyCode}
-            className="group w-full rounded-lg border border-border/50 bg-background/80 p-3 text-center transition-all hover:border-primary/30"
-          >
-            <code className="text-2xl font-mono font-bold tracking-[0.25em]">{userCode}</code>
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-              {copied ? (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  <span>Click to copy</span>
-                </>
-              )}
-            </div>
-          </button>
-        </CardContent>
-      </Card>
+        </button>
+      </div>
 
-      <Card className="border-border/50 bg-card/50">
-        <CardContent className="space-y-3 p-4">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              Step 2
-            </Badge>
-            <span className="text-sm text-muted-foreground">Enter it on GitHub</span>
-          </div>
-          <Button onClick={handleOpenGitHub} className="w-full gap-2">
-            <ExternalLink className="h-4 w-4" />
-            Open GitHub Device Activation
-          </Button>
-        </CardContent>
-      </Card>
+      <div className={stepShell}>
+        <div className="mb-3 flex items-center gap-2">
+          <Badge variant="secondary" className="text-xs">
+            Step 2
+          </Badge>
+          <span className="text-sm text-muted-foreground">Enter it on GitHub</span>
+        </div>
+        <Button onClick={handleOpenGitHub} className="w-full gap-2">
+          <ExternalLink className="h-4 w-4" />
+          Open GitHub Device Activation
+        </Button>
+      </div>
 
       {isPolling && (
         <div className="flex items-center justify-center gap-2 py-2">

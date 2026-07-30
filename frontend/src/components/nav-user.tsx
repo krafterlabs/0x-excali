@@ -98,7 +98,7 @@ export function NavUser({
               sideOffset={4}
             >
               <DropdownMenuItem
-                onClick={() => setLocation(ROUTES.SETTINGS)}
+                onClick={() => setLocation(ROUTES.WORKSPACE_SETTINGS)}
                 className="cursor-pointer"
               >
                 <SettingsIcon className="mr-2 h-4 w-4" />

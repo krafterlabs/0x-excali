@@ -4,6 +4,7 @@ import { FileText, History, LayoutTemplate, Loader2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 import { AppShell } from '@/components/layout/AppShell';
+import { WorkspaceSettingsPanel } from '@/components/settings/workspace-settings-panel';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,18 +20,20 @@ import { ROUTES, workspaceFilePath } from '@/lib/routes';
 import { withDiagramExtension } from '@/lib/diagram-format';
 import { TIMING } from '@/lib/timing';
 import { bootstrapWorkspace } from '@/lib/workspace-session';
+import type { AuthUser } from '@/types/github';
 
 import { database } from '../../wailsjs/go/models';
 
 interface WorkspaceProps {
   fileId?: string;
+  showSettings?: boolean;
 }
 
 export interface TreeNode extends database.FileNode {
   children: TreeNode[];
 }
 
-export function Workspace({ fileId }: WorkspaceProps) {
+export function Workspace({ fileId, showSettings = false }: WorkspaceProps) {
   const [, setLocation] = useLocation();
   const [workspace, setWorkspace] = useState<database.Workspace | null>(null);
   const [fileTree, setFileTree] = useState<TreeNode[]>([]);
@@ -40,11 +43,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
   const [dirtyCount, setDirtyCount] = useState(0);
   const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<{
-    username: string;
-    avatar_url: string;
-    email: string;
-  } | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isLocalMode, setIsLocalMode] = useState(false);
 
   const hasSyncedOnLoad = useRef(false);
@@ -147,12 +146,16 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
         const { GetAuthStatus } = await import('../../wailsjs/go/github/AuthService');
         const auth = await GetAuthStatus();
-        if (auth?.authenticated && !cancelled) {
-          setAuthUser({
-            username: auth.username,
-            avatar_url: auth.avatar_url,
-            email: auth.email,
-          });
+        if (!cancelled) {
+          setAuthUser(
+            auth?.authenticated
+              ? {
+                  username: auth.username,
+                  avatar_url: auth.avatar_url,
+                  email: auth.email,
+                }
+              : null
+          );
         }
 
         if (!cancelled) setLoading(false);
@@ -354,7 +357,8 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   const headerProps = {
     workspace,
-    activeFile: fileId ? decodeURIComponent(fileId) : undefined,
+    activeFile: showSettings ? undefined : fileId ? decodeURIComponent(fileId) : undefined,
+    settingsView: showSettings,
     syncStatus,
     dirtyCount,
     onSync: handleForceSync,
@@ -370,7 +374,7 @@ export function Workspace({ fileId }: WorkspaceProps) {
     hasPendingChanges,
     isLocalMode,
     fileTree,
-    onFileClick: (path: string) => setLocation(`/workspace/${encodeURIComponent(path)}`),
+    onFileClick: (path: string) => setLocation(workspaceFilePath(path)),
     onCreateFolder: (parentPath?: string) => {
       setNewItemParent(parentPath || '');
       setNewItemName('');
@@ -387,7 +391,20 @@ export function Workspace({ fileId }: WorkspaceProps) {
 
   return (
     <AppShell headerProps={headerProps} sidebarProps={sidebarProps}>
-      {fileId ? (
+      {showSettings ? (
+        <WorkspaceSettingsPanel
+          authUser={authUser}
+          isLocalMode={isLocalMode}
+          onAuthUpdated={setAuthUser}
+          onLocalModeChanged={(localOnly) => {
+            setIsLocalMode(localOnly);
+            setSyncStatus(localOnly ? 'offline' : 'synced');
+          }}
+          onRepositoryLinked={async () => {
+            await reloadWorkspace();
+          }}
+        />
+      ) : fileId ? (
         <CanvasView id={fileId} key={fileId} />
       ) : (
         <div className="flex flex-col items-center justify-center h-full w-full text-center px-4">

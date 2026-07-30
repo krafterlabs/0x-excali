@@ -19,6 +19,7 @@ import { database } from '../../../wailsjs/go/models';
 export interface HeaderProps {
   workspace: database.Workspace | null;
   activeFile?: string;
+  settingsView?: boolean;
   syncStatus: 'synced' | 'syncing' | 'error' | 'offline';
   dirtyCount: number;
   onSync: () => void | Promise<void>;
@@ -28,6 +29,7 @@ export interface HeaderProps {
 export function Header({
   workspace,
   activeFile,
+  settingsView = false,
   syncStatus,
   dirtyCount,
   onSync,
@@ -42,21 +44,29 @@ export function Header({
 
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                {activeFile ? (
-                  <BreadcrumbLink render={<Link href="/workspace" />}>
-                    {workspace?.name.split('/')[1] || 'Workspace'}
-                  </BreadcrumbLink>
-                ) : (
-                  <BreadcrumbPage>{workspace?.name.split('/')[1] || 'Workspace'}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-              {activeFile && (
+              {settingsView ? (
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Settings</BreadcrumbPage>
+                </BreadcrumbItem>
+              ) : (
                 <>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>{activeFile.split('/').pop()}</BreadcrumbPage>
+                  <BreadcrumbItem className="hidden md:block">
+                    {activeFile ? (
+                      <BreadcrumbLink render={<Link href="/workspace" />}>
+                        {workspace?.name.split('/')[1] || 'Workspace'}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{workspace?.name.split('/')[1] || 'Workspace'}</BreadcrumbPage>
+                    )}
                   </BreadcrumbItem>
+                  {activeFile && (
+                    <>
+                      <BreadcrumbSeparator className="hidden md:block" />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>{activeFile.split('/').pop()}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                 </>
               )}
             </BreadcrumbList>

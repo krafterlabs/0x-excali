@@ -67,7 +67,7 @@ func (e *Engine) processPendingItems() {
 		return // No workspace — nothing to sync
 	}
 
-	items, err := e.db.GetPendingSyncItems(e.ctx, batchSize)
+	items, err := e.db.GetPendingSyncItems(e.ctx, ws.ID, batchSize)
 	if err != nil {
 		log.Printf("sync: failed to fetch pending items: %v", err)
 		return

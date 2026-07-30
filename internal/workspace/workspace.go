@@ -73,6 +73,42 @@ func (s *Service) SelectWorkspace(repo github.Repository) error {
 	return nil
 }
 
+// SwitchWorkspace activates the given repository without syncing the previous one.
+func (s *Service) SwitchWorkspace(repo github.Repository) error {
+	if err := s.SelectWorkspace(repo); err != nil {
+		return err
+	}
+	wailsRuntime.EventsEmit(s.ctx, "workspace:switched", repo.FullName)
+	return nil
+}
+
+// RepoPendingStatus summarizes local unsynced state for a GitHub repository.
+type RepoPendingStatus struct {
+	RepoID        int64 `json:"repo_id"`
+	HasPending    bool  `json:"has_pending"`
+	DirtyCount    int   `json:"dirty_count"`
+	PendingSyncs  int   `json:"pending_syncs"`
+}
+
+// GetRepoPendingStatus returns whether a repository has local changes not yet on GitHub.
+func (s *Service) GetRepoPendingStatus(repoID int64) RepoPendingStatus {
+	status := RepoPendingStatus{RepoID: repoID}
+
+	ws, err := s.db.GetWorkspaceByRepoID(s.ctx, repoID)
+	if err != nil || ws == nil {
+		return status
+	}
+
+	if dirty, err := s.db.GetDirtyFiles(s.ctx, ws.ID); err == nil {
+		status.DirtyCount = len(dirty)
+	}
+	if pending, err := s.db.CountPendingSyncItems(s.ctx, ws.ID); err == nil {
+		status.PendingSyncs = pending
+	}
+	status.HasPending = status.DirtyCount > 0 || status.PendingSyncs > 0
+	return status
+}
+
 // GetActiveWorkspace returns the currently active workspace, or nil if none is set.
 func (s *Service) GetActiveWorkspace() *database.Workspace {
 	ws, err := s.db.GetActiveWorkspace(s.ctx)
@@ -83,32 +119,32 @@ func (s *Service) GetActiveWorkspace() *database.Workspace {
 	return ws
 }
 
-// GetPendingSyncCount returns the number of sync operations waiting to be pushed.
+// GetPendingSyncCount returns the number of sync operations waiting to be pushed
+// for the active workspace.
 func (s *Service) GetPendingSyncCount() int {
-	count, err := s.db.CountPendingSyncItems(s.ctx)
+	ws, err := s.db.GetActiveWorkspace(s.ctx)
+	if err != nil || ws == nil {
+		return 0
+	}
+	count, err := s.db.CountPendingSyncItems(s.ctx, ws.ID)
 	if err != nil {
 		return 0
 	}
 	return count
 }
 
-// HasPendingLocalChanges reports whether there are local edits waiting to be pushed.
+// HasPendingLocalChanges reports whether the active workspace has local edits waiting to be pushed.
 func (s *Service) HasPendingLocalChanges() bool {
 	ws, err := s.db.GetActiveWorkspace(s.ctx)
 	if err != nil || ws == nil {
 		return false
 	}
 
-	pending, err := s.db.CountPendingSyncItems(s.ctx)
-	if err == nil && pending > 0 {
-		return true
-	}
-
-	dirty, err := s.db.GetDirtyFiles(s.ctx, ws.ID)
+	hasPending, err := s.db.WorkspaceHasPendingChanges(s.ctx, ws.ID)
 	if err != nil {
 		return false
 	}
-	return len(dirty) > 0
+	return hasPending
 }
 
 // SyncFileTree pushes any pending local changes, then fetches the remote tree.

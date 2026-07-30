@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import {
+  ChevronDown,
   ChevronRight,
   FileText,
   Folder,
@@ -41,6 +42,7 @@ import { cn } from '@/lib/utils';
 
 import { database } from '../../wailsjs/go/models';
 import { NavUser } from './nav-user';
+import { WorkspaceSwitcherDialog } from './workspace-switcher-dialog';
 
 export interface SidebarProps {
   workspace: database.Workspace | null;
@@ -54,6 +56,7 @@ export interface SidebarProps {
   onCreateFolder: (parentPath?: string) => void;
   onCreateDiagram: (parentPath?: string) => void;
   onDelete: (path: string) => void;
+  onWorkspaceSwitch: () => Promise<void>;
 }
 
 export function AppSidebar({
@@ -68,19 +71,38 @@ export function AppSidebar({
   onCreateFolder,
   onCreateDiagram,
   onDelete,
+  onWorkspaceSwitch,
   ...props
 }: SidebarProps & React.ComponentProps<typeof Sidebar>) {
   const [location] = useLocation();
+  const [switcherOpen, setSwitcherOpen] = React.useState(false);
   const selectedPath = location.startsWith('/workspace/')
     ? decodeURIComponent(location.slice(11))
     : '';
 
   return (
     <Sidebar collapsible="icon" {...props}>
+      <WorkspaceSwitcherDialog
+        open={switcherOpen}
+        onOpenChange={setSwitcherOpen}
+        activeRepoId={workspace?.repo_id}
+        activeRepoName={workspace?.full_name}
+        hasCurrentPendingChanges={hasPendingChanges || dirtyCount > 0}
+        onSwitch={async (repo) => {
+          const { SwitchWorkspace } = await import('../../wailsjs/go/workspace/Service');
+          await SwitchWorkspace(repo);
+          await onWorkspaceSwitch();
+        }}
+      />
       <SidebarHeader className="space-y-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-transparent cursor-default">
+            <SidebarMenuButton
+              size="lg"
+              className="hover:bg-accent/60 cursor-pointer"
+              onClick={() => setSwitcherOpen(true)}
+              tooltip="Switch repository"
+            >
               <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary/10 text-primary shadow-sm shrink-0">
                 <svg
                   viewBox="0 0 24 24"
@@ -106,6 +128,7 @@ export function AppSidebar({
                   </div>
                 )}
               </div>
+              <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem className="px-2 group-data-[collapsible=icon]:px-0">

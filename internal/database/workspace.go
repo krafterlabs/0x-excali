@@ -39,6 +39,28 @@ func (db *DB) UpsertWorkspace(ctx context.Context, ws *Workspace) error {
 	return tx.Commit()
 }
 
+// GetWorkspaceByRepoID returns a workspace by its GitHub repository ID.
+func (db *DB) GetWorkspaceByRepoID(ctx context.Context, repoID int64) (*Workspace, error) {
+	row := db.conn.QueryRowContext(ctx, `
+		SELECT id, repo_id, owner, name, full_name, default_branch, is_private, is_active, created_at, updated_at
+		FROM workspace WHERE repo_id = ? LIMIT 1
+	`, repoID)
+
+	var ws Workspace
+	var isPrivateInt, isActiveInt int
+	err := row.Scan(&ws.ID, &ws.RepoID, &ws.Owner, &ws.Name, &ws.FullName,
+		&ws.DefaultBranch, &isPrivateInt, &isActiveInt, &ws.CreatedAt, &ws.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	ws.IsPrivate = isPrivateInt == 1
+	ws.IsActive = isActiveInt == 1
+	return &ws, nil
+}
+
 // GetActiveWorkspace returns the currently active workspace, or nil.
 func (db *DB) GetActiveWorkspace(ctx context.Context) (*Workspace, error) {
 	row := db.conn.QueryRowContext(ctx, `
